@@ -2,34 +2,34 @@ name: Deploy Frontend
 on:
   push:
     branches: [main]
-    paths: ['frontend/**']
+    paths: ["frontend/**"]
   workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-    
-    - uses: google-github-actions/setup-gcloud@v2
-    
-    - name: Configure Docker
-      run: gcloud auth configure-docker us-central1-docker.pkg.dev
-    
-    - name: Build & Push Frontend
-      working-directory: ./frontend
-      run: |
-        gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/frontend:latest
-    
-    - name: Deploy Frontend
-      run: |
-        gcloud run deploy safeops-frontend \
-          --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/frontend:latest \
-          --platform managed \
-          --region us-central1 \
-          --allow-unauthenticated \
-          --port 8080 \
-          --memory 512Mi
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build & Push Frontend
+        working-directory: ./frontend
+        run: |
+          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/frontend:latest --suppress-logs
+
+      - name: Deploy Frontend
+        run: |
+          gcloud run deploy safeops-frontend \
+            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/frontend:latest \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 512Mi
