@@ -22,7 +22,7 @@ jobs:
       - name: Build & Push Backend
         working-directory: ./backend
         run: |
-          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/backend:latest --suppress-logs
+          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/safeops-docker/backend:latest
 
       - name: Deploy Backend
         run: |
@@ -32,4 +32,7 @@ jobs:
             --region us-central1 \
             --allow-unauthenticated \
             --port 8080 \
-            --memory 512Mi
+            --cpu 1 \
+            --memory 512Mi \
+            --min-instances 0 \
+            --max-instances 2
