@@ -16,6 +16,9 @@ jobs:
     
     - uses: google-github-actions/setup-gcloud@v2
     
+    - name: Configure Docker
+      run: gcloud auth configure-docker us-central1-docker.pkg.dev
+    
     - name: Build & Push Frontend
       working-directory: ./frontend
       run: |
@@ -28,4 +31,5 @@ jobs:
           --platform managed \
           --region us-central1 \
           --allow-unauthenticated \
-          --port 8080
+          --port 8080 \
+          --memory 512Mi
