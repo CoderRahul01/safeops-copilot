@@ -39,6 +39,12 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --cpu 1 \
-            --memory 512Mi \
+            --memory 1Gi \
             --min-instances 0 \
-            --max-instances 2
+            --max-instances 2 \
+            --quiet \
+            --no-user-output-enabled
+
+      - name: Verify Frontend Deployment
+        run: |
+          gcloud run services describe safeops-frontend --region us-central1 --format='value(status.url)'
