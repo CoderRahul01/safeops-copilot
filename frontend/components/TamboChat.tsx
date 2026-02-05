@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useTamboThread, useTamboThreadInput, useTamboGenerationStage } from "@tambo-ai/react";
-import { Send, Loader2, MessageSquare, X, ChevronDown, Terminal } from "lucide-react";
+import { useTamboThread, useTamboThreadInput, useTamboGenerationStage, useTamboSuggestions } from "@tambo-ai/react";
+import { Send, Loader2, MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -18,12 +18,14 @@ interface Message {
   renderedComponent?: React.ReactNode;
 }
 
-export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string }) {
+export default function TamboChat() {
   const { currentThread } = useTamboThread();
   const { value, setValue, submit, isPending } = useTamboThreadInput();
-  const { isIdle } = useTamboGenerationStage() || { isIdle: true };
+  const { isIdle, generationStage } = useTamboGenerationStage() || { isIdle: true, generationStage: 'IDLE' };
+  const { suggestions, accept } = useTamboSuggestions({ maxSuggestions: 3 });
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastInteractionRef = useRef<string | null>(null);
 
@@ -48,13 +50,11 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
           }
         })
       });
-      console.log('✅ Sync with Supermemory complete');
     } catch (err) {
       console.error('❌ Memory sync failed:', err);
     }
   }, [user, currentThread]);
 
-  // Sync with Supermemory when interaction is complete
   useEffect(() => {
     if (isIdle && !isPending && currentThread?.messages && currentThread.messages.length > 0) {
       const messages = currentThread.messages;
@@ -78,7 +78,6 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
     e.preventDefault();
     if (!value.trim() || isPending) return;
     
-    // Store user message immediately
     const val = value.trim();
     await submit();
     
@@ -94,82 +93,122 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
 
   const messages = currentThread?.messages || [];
 
+  // Use dynamic suggestions instead of hardcoded ones
+  const activeSuggestions = suggestions.length > 0 ? suggestions : [
+    { id: '1', title: 'Explain Expenditure' },
+    { id: '2', title: 'Review Audit Score' },
+    { id: '3', title: 'Analyze Deployments' }
+  ];
+
   return (
     <>
-      {/* Floating Trigger Button */}
+      {/* Minimalist Floating Trigger */}
       {!isOpen && (
         <motion.button
-          layoutId="chat-hud"
+          layoutId="chat-window"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-12 right-12 w-16 h-16 bg-foreground text-background rounded-sm border-4 border-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all z-50 flex items-center justify-center group"
+          className="fixed bottom-12 right-12 w-14 h-14 bg-foreground text-background rounded-full border border-foreground shadow-lg hover:scale-105 active:scale-95 transition-all z-50 flex items-center justify-center group"
         >
-          <MessageSquare className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-          <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-600 animate-ping rounded-full" />
+          <MessageSquare className="w-6 h-6" />
         </motion.button>
       )}
 
-      {/* Floating HUD Chat */}
+      {/* Minimalist Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
-            layoutId="chat-hud"
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed bottom-12 right-12 w-[450px] h-[650px] bg-background border-4 border-foreground shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] z-50 flex flex-col overflow-hidden"
+            layoutId="chat-window"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1, 
+              y: 0,
+              width: isExpanded ? '850px' : '380px',
+              height: isExpanded ? 'calc(100vh - 80px)' : '580px'
+            }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed bottom-12 right-12 bg-white dark:bg-black border border-foreground shadow-2xl z-50 flex flex-col overflow-hidden transition-[width,height] duration-300 ease-in-out"
+            style={{ backgroundColor: 'var(--background)', opacity: 1 }}
           >
-            {/* HUD Header */}
-            <div className="h-14 bg-foreground text-background flex items-center justify-between px-6 shrink-0 relative overflow-hidden">
-              <div className="flex items-center gap-3 z-10">
-                <Terminal size={16} className="text-green-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">AI_CO_PILOT_STREAM</span>
+            {/* Header */}
+            <div className="h-14 bg-foreground text-background flex items-center justify-between px-5 shrink-0">
+              <div className="flex flex-col">
+                <span className="text-[11px] font-bold uppercase tracking-widest italic">
+                  {isExpanded ? 'Strategic Operations Console' : 'Operations Copilot'}
+                </span>
+                <span className="text-[8px] opacity-40 uppercase tracking-tighter">
+                  {isExpanded ? 'High-Entropy Command Interface' : 'Active Guidance Mode'}
+                </span>
               </div>
-              <div className="flex items-center gap-4 z-10">
-                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform opacity-40 hover:opacity-100">
-                  <ChevronDown size={18} />
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)} 
+                  className="hover:opacity-60 transition-opacity p-1"
+                  title={isExpanded ? "Collapse" : "Expand for Broad View"}
+                >
+                  {isExpanded ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square">
+                      <path d="M4 14h6v6M20 10h-6V4" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square">
+                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                  )}
                 </button>
-                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform opacity-40 hover:opacity-100">
+                <div className="w-px h-4 bg-background/20" />
+                <button onClick={() => setIsOpen(false)} className="hover:opacity-60 transition-opacity">
                   <X size={18} />
                 </button>
               </div>
-              {/* Animated Scanline Overlay for Header */}
-              <div className="absolute inset-0 bg-white opacity-[0.03] pointer-events-none" />
             </div>
 
-            {/* Terminal Thread Content */}
+            {/* Chat Content */}
             <div 
               ref={scrollRef}
-              className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-none"
+              className="flex-1 overflow-y-auto p-4 space-y-4"
             >
-              {welcomeMessage && messages.length === 0 && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-zinc-100 dark:bg-zinc-900 border-2 border-foreground/10 p-4 font-mono text-[10px] italic leading-relaxed"
-                >
-                  {`> Welcome to SafeOps Mainframe. How can I assist with your cloud security protocols today?`}
-                </motion.div>
+              {messages.length === 0 && (
+                <div className="p-4 border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/50">
+                   <p className="text-[12px] font-bold uppercase mb-3 text-foreground">Initial Briefing</p>
+                   <p className="text-[11px] leading-relaxed text-zinc-500 mb-4">
+                     Welcome, Operator. I&apos;m here to help you navigate your infrastructure safety dashboard.
+                   </p>
+                   <div className="space-y-2">
+                     <p className="text-[9px] font-bold uppercase opacity-30">Contextual Commands:</p>
+                     {activeSuggestions.map((s) => (
+                       <button 
+                         key={s.id}
+                         onClick={() => accept({ 
+                           suggestion: { id: s.id, title: s.title, detailedSuggestion: s.title, messageId: '' }, 
+                           shouldSubmit: true 
+                         })}
+                         className="block w-full text-left px-3 py-2 border border-zinc-200 dark:border-zinc-800 text-[10px] font-bold uppercase hover:bg-foreground hover:text-background transition-all"
+                       >
+                         {`> ${s.title}`}
+                       </button>
+                     ))}
+                   </div>
+                </div>
               )}
 
               <AnimatePresence mode="popLayout">
-                {messages.map((msg: { id: string, role: string, content?: MessagePart[], renderedComponent?: React.ReactNode }) => (
+                {messages.map((msg: Message) => (
                   <motion.div
                     key={msg.id}
-                    initial={{ opacity: 0, x: msg.role === 'user' ? 20 : -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[8px] font-black uppercase tracking-tighter ${msg.role === 'user' ? 'text-zinc-500' : 'text-red-500'}`}>
-                        {msg.role === 'user' ? '[USER]' : '[AI_MAINFRAME]'}
-                      </span>
-                    </div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider mb-2 opacity-30">
+                      {msg.role === 'user' ? 'USER' : 'ASSISTANT'}
+                    </span>
 
                     {msg.content?.some(p => p.type === 'text') && (
-                      <div className={`p-4 border-2 font-mono text-[11px] leading-relaxed max-w-[90%]
+                      <div className={`p-4 border text-[13px] leading-relaxed max-w-[85%]
                         ${msg.role === 'user' 
-                          ? 'bg-foreground text-background border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]' 
-                          : 'hidden'}`}
+                          ? 'bg-foreground text-background border-foreground' 
+                          : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-100 dark:border-zinc-900 text-foreground'}`}
                       >
                         {msg.content?.map((part: MessagePart, i: number) => (
                           part.type === 'text' && part.text && (
@@ -179,9 +218,8 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
                       </div>
                     )}
 
-                    {/* Generative UI Component - Rendered in HUD Style */}
                     {msg.renderedComponent && (
-                      <div className="w-full mt-4 scale-90 -origin-left">
+                      <div className={`mt-4 origin-top transition-all duration-300 ${isExpanded ? 'w-full' : 'w-full scale-[0.98]'}`}>
                         {msg.renderedComponent}
                       </div>
                     )}
@@ -189,39 +227,65 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
                 ))}
               </AnimatePresence>
 
-              {!isIdle && (
-                <div className="flex gap-2 items-center text-red-500 animate-pulse">
-                  <span className="text-[10px] font-mono">{`> PROCESSING_INPUT...`}</span>
-                  <Loader2 size={10} className="animate-spin" />
+              {messages.length > 0 && !isPending && suggestions.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => accept({ suggestion: s, shouldSubmit: true })}
+                      className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 text-[9px] font-bold uppercase hover:bg-foreground hover:text-background transition-all"
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {(!isIdle || isPending) && (
+                <div className="flex flex-col gap-2 p-4 border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/50 animate-in fade-in slide-in-from-bottom-2">
+                  <div className="flex gap-2 items-center">
+                    <Loader2 size={12} className="animate-spin text-foreground" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground">
+                      {isPending ? "Transmitting" : (generationStage || "Processing")}
+                    </span>
+                  </div>
+                  <div className="h-[1px] w-full bg-zinc-200 dark:bg-zinc-800 relative overflow-hidden">
+                    <motion.div 
+                      initial={{ left: "-100%" }}
+                      animate={{ left: "100%" }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                      className="absolute top-0 bottom-0 w-[30%] bg-foreground"
+                    />
+                  </div>
+                  <span className="text-[8px] font-mono text-zinc-400 uppercase">
+                    {generationStage === 'FETCHING_CONTEXT' && "Pulling real-time telemetry..."}
+                    {generationStage === 'CHOOSING_COMPONENT' && "Selecting optimal UI primitive..."}
+                    {generationStage === 'HYDRATING_COMPONENT' && "Populating component schemas..."}
+                    {generationStage === 'STREAMING_RESPONSE' && "Rendering cinematic interface..."}
+                    {(!generationStage || generationStage === 'IDLE') && isPending && "Awaiting system handshake..."}
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="p-4 border-t-4 border-foreground bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden">
-              <form onSubmit={handleSubmit} className="flex gap-2 relative z-10">
-                <div className="flex-1 relative flex items-center">
-                  <span className="absolute left-3 text-zinc-400 font-mono text-xs italic">{`>`}</span>
-                  <input
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="ENTER_PROTOCOL_COMMAND..."
-                    className="w-full bg-transparent border-2 border-foreground/10 focus:border-foreground pl-8 pr-4 py-2 text-[10px] font-mono outline-none transition-all uppercase placeholder:opacity-30"
-                    disabled={isPending}
-                  />
-                </div>
+            {/* Input Area */}
+            <div className="p-6 border-t border-zinc-100 dark:border-zinc-900 bg-background">
+              <form onSubmit={handleSubmit} className="flex gap-3">
+                <input
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="Ask a question..."
+                  className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-transparent focus:border-foreground px-4 py-3 text-[13px] outline-none transition-all placeholder:text-zinc-400"
+                  disabled={isPending}
+                />
                 <button
                   type="submit"
                   disabled={isPending || !value.trim()}
-                  className="px-4 bg-foreground text-background font-black text-[10px] uppercase tracking-widest hover:invert transition-all flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]"
+                  className="w-12 h-12 bg-foreground text-background flex items-center justify-center hover:opacity-90 disabled:opacity-20 transition-all border border-foreground"
                 >
-                  {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  {isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
               </form>
-              
-              {/* CRT Scanline and Vignette Effects */}
-              <div className="absolute inset-0 pointer-events-none z-0">
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.01),rgba(0,0,255,0.01))] bg-[length:100%_4px,3px_100%] opacity-20 pointer-events-none" />
-              </div>
             </div>
           </motion.div>
         )}

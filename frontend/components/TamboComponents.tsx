@@ -1,711 +1,624 @@
 "use client";
 
-import React, { useState } from "react";
-import { useTamboComponentState } from "@tambo-ai/react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Terminal } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Terminal, ShieldAlert, Zap } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { useTamboStreamStatus, TamboMessageProvider, useTamboCurrentComponent, type TamboThreadMessage } from "@tambo-ai/react";
 
-// ... existing code ...
+// Types for components
+interface SafetyCardProps {
+  data?: { totalSpend: number; budget: number };
+  recommendation?: string;
+}
 
-// 10. Mainframe Report: Cinematic Narrative Container
-export function MainframeReport({ title, content, status = "DECRYPTED" }: { title: string, content: string, status?: string }) {
+interface StatusMeterProps {
+  metrics?: { risk_score: number; active_resources: number; saving_potential: number };
+}
+
+interface SafetyAuditProps {
+  score?: number;
+  checks?: Array<{ category: string; status: 'PASS' | 'FAIL' | 'WARN'; message: string }>;
+}
+
+interface FreeTierSentinelProps {
+  data?: {
+    score: number;
+    leakage: number;
+    traps: Array<{ resource: string, cost: number, trapType: string }>;
+  };
+}
+
+interface TroubleshootingWorkflowProps {
+  steps?: Array<{ completed: boolean, label: string, description: string }>;
+  issueId?: string;
+  onSync?: (stepIndex: number) => Promise<void>;
+}
+
+interface WorkflowStepperProps {
+  id?: string;
+  title?: string;
+  steps?: Array<{ label: string, description: string }>;
+}
+
+interface MainframeReportProps {
+  title?: string;
+  content?: string;
+  status?: string;
+}
+
+interface CloudAchievementProps {
+  title?: string;
+  points?: number;
+  description?: string;
+  icon?: string;
+}
+
+const STATIC_MESSAGE_CONTEXT: TamboThreadMessage = {
+  id: "static-context",
+  threadId: "static-thread",
+  role: "assistant",
+  content: [],
+  createdAt: new Date().toISOString(),
+  componentState: {},
+  component: {
+    componentName: "Static",
+    componentState: {},
+    message: "Static Context",
+    props: {}
+  }
+};
+
+// HOC to ensure components are only rendered on the client to avoid SSR hook errors
+function withClientOnly<T extends object>(Component: React.ComponentType<T>) {
+  return function ClientOnlyWrapper(props: T) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
+    // Safety check: useTamboStreamStatus requires TamboMessageProvider context
+    // useTamboCurrentComponent returns null if context is missing
+    // Called at top level to satisfy hook laws
+    const hasMessageContext = !!useTamboCurrentComponent();
+    
+    if (!mounted) return <div className="w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10 rounded-sm" style={{ height: '200px' }} />;
+    
+    if (hasMessageContext) {
+      return <Component {...props} />;
+    }
+    
+    // Provide a static context if missing (e.g. static dashboard usage)
+    return (
+      <TamboMessageProvider message={STATIC_MESSAGE_CONTEXT}>
+        <Component {...props} />
+      </TamboMessageProvider>
+    );
+  };
+}
+
+// 1. Safety Card: Minimalist Spend Overview
+function SafetyCardInternal({ data, recommendation }: SafetyCardProps) {
+  const { streamStatus } = useTamboStreamStatus<SafetyCardProps>();
+  
+  if (streamStatus.isPending) {
+    return <div className="h-64 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
+
+  const isHealthy = (data?.totalSpend || 0) < (data?.budget || 100);
+
   return (
     <motion.div 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="border-l-[6px] border-foreground p-8 bg-zinc-50 dark:bg-zinc-900/40 relative overflow-hidden my-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      layout
+      className="border border-foreground p-8 bg-background relative"
     >
-      <div className="flex items-center gap-4 mb-6">
-        <div className="px-3 py-1 bg-foreground text-background text-[10px] font-black uppercase tracking-widest">
-          {title}
+      <div className="flex justify-between items-start mb-8">
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Fleet Expenditure</span>
+          <div className="flex items-baseline gap-3 mt-1">
+            <span className="text-6xl font-black tracking-tighter text-foreground">${data?.totalSpend || "0.00"}</span>
+            <span className="text-xl font-bold text-zinc-200">/ ${data?.budget || "100"}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[8px] font-mono opacity-40 uppercase tracking-tighter">{status}</span>
+        <div className={`px-4 py-1 text-[10px] font-bold uppercase border ${isHealthy ? 'border-foreground text-foreground' : 'border-red-600 text-red-600'}`}>
+          {isHealthy ? 'PROTECTED' : 'ALERT'}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <p className="text-[13px] font-mono leading-relaxed text-foreground/80 first-letter:text-2xl first-letter:font-black first-letter:mr-1">
-          {content}
+      <div className="pt-8 border-t border-zinc-100 dark:border-zinc-900">
+        <p className="text-[13px] font-medium text-foreground/80 max-w-xl">
+          {recommendation || "Infrastructure investment and global resource efficiency remains optimal."}
         </p>
       </div>
-
-      <div className="mt-8 flex items-center justify-between opacity-20">
-        <div className="text-[8px] font-mono uppercase tracking-[0.2em]">Transmission_Verified // SO_V2</div>
-        <div className="flex gap-1">
-          {[1,2,3,4].map(i => <div key={i} className="w-1 h-3 bg-foreground" />)}
-        </div>
-      </div>
-      
-      <div className="absolute top-0 right-0 p-4 opacity-[0.05]">
-        <Terminal size={40} />
-      </div>
     </motion.div>
   );
 }
+export const SafetyCard = withClientOnly(SafetyCardInternal);
 
-/**
- * SafeOps Monochrome Components
- * Designed for high impact, ultra-premium B&W aesthetic.
- */
+// 2. Status Meter: Minimalist Metric Bar
+function StatusMeterInternal({ metrics }: StatusMeterProps) {
+  const { streamStatus } = useTamboStreamStatus<StatusMeterProps>();
 
-// 1. Safety Card: Ultra-Premium Spend Overview
-export function SafetyCard({ data, recommendation, isLoading }: { data: { totalSpend: number, budget: number }, recommendation?: string, isLoading: boolean }) {
-  if (isLoading) return <div className="h-64 w-full bg-zinc-100 dark:bg-zinc-900 animate-pulse border-4 border-zinc-200" />;
-
-  const isHealthy = data?.totalSpend < (data?.budget || 100);
+  if (streamStatus.isPending) {
+    return <div className="h-64 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
 
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="border-[6px] border-foreground p-10 relative overflow-hidden bg-background shadow-[15px_15px_0px_0px_rgba(0,0,0,1)] dark:shadow-[15px_15px_0px_0px_rgba(255,255,255,0.05)]"
-    >
-      <div className="absolute top-0 right-0 p-6">
-        <div className={`text-[12px] font-black uppercase tracking-[0.3em] px-4 py-2 ${isHealthy ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-red-600 text-white animate-pulse'}`}>
-          {isHealthy ? 'SYSTEM_STABLE' : 'CRITICAL_WASTE'}
-        </div>
-      </div>
-      
-      <div className="flex flex-col gap-4">
-        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Infrastructure Spend // 28D Window</span>
-        <div className="flex items-baseline gap-4">
-          <motion.span 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-8xl font-black tracking-tighter"
-          >
-            ${data?.totalSpend || "0.00"}
-          </motion.span>
-          <span className="text-2xl font-black opacity-20 tracking-tighter">/ ${data?.budget || "100"}</span>
-        </div>
-      </div>
-
-      <div className="mt-10 pt-10 border-t-4 border-foreground/5">
-        <div className="flex items-start gap-4">
-          <div className="w-1.5 h-12 bg-foreground shrink-0" />
-          <p className="text-base font-bold leading-tight max-w-xl italic">
-            &quot;{recommendation || "Analyzing resource efficiency. No immediate risks detected in your cloud fleet."}&quot;
-          </p>
-        </div>
-      </div>
-
-      {!isHealthy && (
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-10 flex gap-4"
-        >
-          <button className="flex-1 py-4 bg-foreground text-background text-xs font-black uppercase tracking-[0.2em] hover:invert transition-all">
-            Initiate Remediation
-          </button>
-          <button className="flex-1 py-4 border-4 border-foreground text-xs font-black uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all">
-            Audit Logs
-          </button>
-        </motion.div>
-      )}
-
-      {/* Decorative Binary Stream (Visual Only) */}
-      <div className="absolute -bottom-4 -right-4 opacity-[0.03] text-[8px] font-mono leading-none rotate-12 select-none pointer-events-none">
-        {Array(20).fill("01101001 01101110 01100110 01110010 01100001").join("\n")}
-      </div>
-    </motion.div>
-  );
-}
-
-// 2. Status Meter: Premium Risk Console
-export function StatusMeter({ metrics, isLoading }: { metrics: { risk_score: number, active_resources: number, saving_potential: number }, isLoading: boolean }) {
-  if (isLoading) return <div className="h-64 w-full bg-zinc-100 dark:bg-zinc-900 animate-pulse border-4 border-zinc-200" />;
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="border-4 border-zinc-200 dark:border-zinc-800 p-10 flex flex-col justify-between h-full bg-zinc-50 dark:bg-zinc-950/50 relative overflow-hidden"
+      layout
+      className="border border-foreground p-8 flex flex-col justify-between h-full bg-background"
     >
-      <div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] mb-10 opacity-30">Risk Assessment Matrix</h3>
-        <div className="flex items-center gap-10">
-          <div className="relative w-32 h-32">
-            <svg className="w-full h-full transform -rotate-90">
-              <circle cx="64" cy="64" r="58" fill="transparent" stroke="currentColor" strokeWidth="12" className="text-zinc-200 dark:text-zinc-900" />
-              <motion.circle 
-                cx="64" cy="64" r="58" fill="transparent" stroke="currentColor" strokeWidth="12" 
-                strokeDasharray={364} 
-                initial={{ strokeDashoffset: 364 }}
-                animate={{ strokeDashoffset: 364 * (1 - (metrics?.risk_score || 0.1)) }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
-                className="text-foreground"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-black">{Math.round((metrics?.risk_score || 0.1) * 100)}%</span>
-              <span className="text-[8px] font-black uppercase opacity-40">Load</span>
-            </div>
+      <div className="space-y-8">
+        <div className="space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Security Index</span>
+          <div className="flex justify-between items-center">
+            <span className="text-5xl font-black text-foreground">{((metrics?.risk_score || 0) * 100).toFixed(0)}%</span>
           </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Active Procs</span>
-              <span className="text-4xl font-black tracking-tighter">{metrics?.active_resources || 0}</span>
-            </div>
-            <div className="w-12 h-1 bg-foreground/10">
-              <motion.div 
-                className="h-full bg-foreground"
-                initial={{ width: 0 }}
-                animate={{ width: '70%' }}
-              />
-            </div>
+          <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-900 mt-4 overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${(metrics?.risk_score || 0) * 100}%` }}
+              className={`h-full ${(metrics?.risk_score || 0) > 0.7 ? 'bg-red-600' : 'bg-foreground'}`}
+            />
           </div>
         </div>
-      </div>
 
-      <div className="mt-12 space-y-4">
-        <div className="flex justify-between items-end">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Potent. Optimization</span>
-            <span className="text-2xl font-black">${metrics?.saving_potential || "0.00"}</span>
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase text-zinc-500">Live Nodes</span>
+            <div className="text-2xl font-bold">{metrics?.active_resources || 0}</div>
           </div>
-          <div className="text-[10px] font-mono text-zinc-400 animate-pulse">RECALCULATING...</div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase text-zinc-500">ROI Potential</span>
+            <div className="text-2xl font-bold text-green-600">${metrics?.saving_potential || 0}</div>
+          </div>
         </div>
-        <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-900 overflow-hidden">
-          <motion.div 
-            className="h-full bg-foreground"
-            initial={{ x: '-100%' }}
-            animate={{ x: '-20%' }}
-            transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
-          />
-        </div>
-      </div>
-
-      {/* Crosshair decoration */}
-      <div className="absolute top-4 right-4 text-[10px] font-mono opacity-10">
-        [+] 52.42.0.1
       </div>
     </motion.div>
   );
 }
+export const StatusMeter = withClientOnly(StatusMeterInternal);
 
-// 3. Resource List: Premium "Console" Inventory
-export function ResourceList({ isLoading }: { isLoading: boolean }) {
-  const [resources, setResources] = React.useState<Array<{ name: string, status: string }>>([]);
+// 3. Resource List: Clean Data Table
+function ResourceListInternal() {
+  const { streamStatus } = useTamboStreamStatus();
+  const [resources, setResources] = useState<Array<{ name: string, status: string }>>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetch("http://localhost:8080/api/inventory/resources")
       .then(res => res.json())
       .then(data => setResources(data))
       .catch(err => console.error(err));
   }, []);
 
-  if (isLoading) return <div className="h-96 w-full bg-zinc-100 dark:bg-zinc-900 animate-pulse border-4 border-zinc-200" />;
+  if (streamStatus.isPending) {
+    return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border-4 border-foreground bg-background overflow-hidden"
+      layout
+      className="border border-foreground bg-background overflow-hidden"
     >
-      <div className="bg-foreground text-background px-8 py-5 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h3 className="text-[12px] font-black uppercase tracking-[0.4em]">Resource Mainframe</h3>
-          <div className="px-2 py-0.5 bg-background text-foreground text-[8px] font-mono leading-none">V2.0.4</div>
-        </div>
-        <span className="text-[10px] font-mono font-black opacity-80">NODES_WATCH: {resources.length}</span>
+      <div className="px-8 py-5 border-b border-foreground flex justify-between items-center">
+        <h3 className="text-[14px] font-bold uppercase tracking-tight">Active Resources</h3>
+        <span className="text-[10px] font-mono text-zinc-400">COUNT: {resources.length}</span>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b-4 border-foreground/10 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
-              <th className="px-8 py-6">ID // Resource</th>
-              <th className="px-8 py-6 text-center">Protocol</th>
-              <th className="px-8 py-6 text-right">Cost (24H)</th>
+            <tr className="border-b border-zinc-100 dark:border-zinc-900 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              <th className="px-8 py-4">Resource Identifier</th>
+              <th className="px-8 py-4 text-center">Status</th>
+              <th className="px-8 py-4 text-right">Unit Cost</th>
             </tr>
           </thead>
-          <tbody className="divide-y-2 divide-foreground/5">
+          <tbody className="divide-y divide-zinc-50 dark:divide-zinc-950">
             {resources.slice(0, 6).map((r, i) => (
-              <motion.tr 
-                key={i}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.05 }}
-                className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors group cursor-crosshair"
-              >
-                <td className="px-8 py-6">
+              <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+                <td className="px-8 py-5">
                   <div className="flex flex-col">
-                    <span className="text-sm font-black tracking-tight group-hover:px-2 transition-all">{r.name}</span>
-                    <span className="text-[9px] font-mono opacity-30 uppercase">Region: us-east-1</span>
+                    <span className="text-sm font-bold">{r.name}</span>
+                    <span className="text-[10px] text-zinc-400">Standard Cluster</span>
                   </div>
                 </td>
-                <td className="px-8 py-6 text-center">
-                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border-2 ${
-                    r.status === 'RUNNING' ? 'border-green-600 text-green-600 animate-pulse' : 'border-zinc-300 text-zinc-400 dark:border-zinc-800'
+                <td className="px-8 py-5 text-center">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    r.status === 'RUNNING' ? 'bg-foreground text-background' : 'text-zinc-400 border border-zinc-200 dark:border-zinc-800'
                   }`}>
-                    {r.status === 'RUNNING' ? 'DEPLOYED' : 'OFFLINE'}
+                    {r.status === 'RUNNING' ? 'LIVE' : 'IDLE'}
                   </span>
                 </td>
-                <td className="px-8 py-6 text-right">
-                  <div className="flex flex-col items-end">
-                    <span className="text-base font-black font-mono tracking-tighter">$2.15</span>
-                    <span className="text-[8px] font-mono opacity-20 uppercase">Trend: +0.4%</span>
-                  </div>
-                </td>
-              </motion.tr>
+                <td className="px-8 py-5 text-right font-mono text-sm">$2.15</td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t-4 border-foreground/5 text-center">
-        <button className="text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">
-          Show All Dependencies ↓
-        </button>
-      </div>
     </motion.div>
   );
 }
+export const ResourceList = withClientOnly(ResourceListInternal);
 
-// 4. Deploy Guard: Ultra-Premium Security Intercept
-export function DeployGuard() {
+// 4. Deploy Guard: Simple Alert State
+function DeployGuardInternal() {
+  const { streamStatus } = useTamboStreamStatus();
+
+  if (streamStatus.isPending) {
+    return <div className="h-64 w-full bg-black animate-pulse border border-white/10" />;
+  }
+
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="border-8 border-foreground p-10 bg-zinc-950 text-white flex flex-col justify-between h-full relative overflow-hidden"
+      initial={{ opacity: 0, x: 10 }}
+      animate={{ opacity: 1, x: 0 }}
+      layout
+      className="border border-foreground p-8 bg-black text-white h-full flex flex-col justify-between"
     >
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 bg-red-600 rounded-full animate-ping" />
-          <h3 className="text-[12px] font-black uppercase tracking-[0.5em]">Deploy_Guard // active</h3>
-        </div>
-        <div className="text-[10px] font-mono opacity-20">ENCRYPTION: AES-256</div>
-      </div>
-
       <div className="space-y-6">
-        <p className="text-xl font-black leading-tight tracking-tight uppercase italic underline decoration-4 underline-offset-8 decoration-red-600">
-          Shielding Production Fleet
-        </p>
-        <p className="text-xs font-bold text-zinc-400 leading-relaxed max-w-sm">
-          Intercepting high-risk artifacts. Automated block protocol active for all unauthorized GCP/AWS service modifications.
-        </p>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-red-600 rounded-full" />
+          <h3 className="text-[12px] font-bold uppercase tracking-widest text-zinc-400">Active Shield</h3>
+        </div>
+        <div className="space-y-2">
+          <p className="text-4xl font-black italic uppercase tracking-tighter">Inbound Guard</p>
+          <p className="text-sm text-zinc-500 uppercase tracking-tight leading-relaxed">
+            Intercepting high-risk service modifications across the fleet.
+          </p>
+        </div>
       </div>
       
-      <div className="mt-12 group cursor-pointer border-4 border-white/10 p-8 hover:bg-white hover:text-black transition-all">
-        <div className="flex flex-col items-center gap-4">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 group-hover:opacity-100">Awaiting Signal</span>
-          <div className="flex gap-2">
-            {[1,2,3,4].map(i => <div key={i} className="w-2 h-8 bg-current opacity-20 group-hover:animate-pulse" />)}
-          </div>
-          <button className="text-[10px] font-black uppercase tracking-widest px-8 py-3 bg-white text-black invert group-hover:invert-0">
-            Enable Full Lockdown
-          </button>
-        </div>
-      </div>
-
-      {/* Background Decorative ID */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12vw] font-black opacity-[0.02] pointer-events-none select-none">
-        DG.01
-      </div>
+      <button className="w-full mt-8 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all">
+        Initiate Lockdown
+      </button>
     </motion.div>
   );
 }
+export const DeployGuard = withClientOnly(DeployGuardInternal);
 
-// 5. Troubleshooting Workflow: Cinematic Issue Resolution
-export function TroubleshootingWorkflow({ steps, issueId, onSync }: { steps: Array<{ completed: boolean, label: string, description: string }>, issueId: string, onSync?: (stepIndex: number) => Promise<void> }) {
-  const [componentState, updateComponentState] = useTamboComponentState<{status?: string, syncedAt?: number, lastCompletedIdx?: number}>(`troubleshoot-${issueId}`, { status: 'CONNECTED' });
+// 5. Troubleshooting Workflow: Linear Guide
+function TroubleshootingWorkflowInternal({ steps, issueId, onSync }: TroubleshootingWorkflowProps) {
+  const { streamStatus } = useTamboStreamStatus<TroubleshootingWorkflowProps>();
   const [isSyncing, setIsSyncing] = useState(false);
 
+  if (streamStatus.isPending) {
+    return <div className="h-80 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
+
   const handleSync = async () => {
-    if (!onSync) return;
-    
-    // Find the first incomplete step
+    if (!onSync || !steps) return;
     const nextStepIdx = steps.findIndex(s => !s.completed);
     if (nextStepIdx === -1) return;
-
     setIsSyncing(true);
-    try {
-      await onSync(nextStepIdx);
-      updateComponentState({ syncedAt: Date.now(), lastCompletedIdx: nextStepIdx });
-    } catch (error) {
-      console.error("Remediation failed:", error);
-    } finally {
-      setIsSyncing(false);
-    }
+    try { await onSync(nextStepIdx); } catch { } finally { setIsSyncing(false); }
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="border-[6px] border-foreground p-10 bg-background relative overflow-hidden shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] dark:shadow-[20px_20px_0px_0px_rgba(255,255,255,0.05)]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      layout
+      className="border border-foreground p-8 bg-background"
     >
-      <div className="flex items-center justify-between mb-12 pb-6 border-b-4 border-foreground/10">
-        <h3 className="font-black text-2xl uppercase tracking-tighter italic">Remediation // {issueId}</h3>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-ping' : 'bg-green-500'}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-            {isSyncing ? 'SYNCING_PROTOCOL' : (componentState?.status || 'CONNECTED')}
-          </span>
-        </div>
+      <div className="flex justify-between items-center mb-8 pb-4 border-b border-zinc-100 dark:border-zinc-900">
+        <h3 className="font-bold text-xl uppercase tracking-tighter italic">Resolution Flow // {issueId}</h3>
+        <div className="w-2 h-2 rounded-full bg-green-500" />
       </div>
 
-      <div className="grid gap-6">
-        {steps.map((step, idx: number) => (
-          <motion.div 
-            key={idx} 
-            layout
-            className={`flex items-start gap-6 p-6 border-4 transition-all duration-300
-              ${step.completed ? 'opacity-20 border-transparent grayscale' : 'border-foreground bg-zinc-50 dark:bg-zinc-900/40'}
-            `}
-          >
-            <div className={`w-10 h-10 border-4 border-foreground flex items-center justify-center text-lg font-black shrink-0
-              ${step.completed ? 'bg-foreground text-background' : 'bg-transparent text-foreground'}
-            `}>
+      <div className="space-y-4">
+        {steps?.map((step, idx) => (
+          <div key={idx} className={`p-5 border ${step.completed ? 'opacity-30 border-dashed border-zinc-200' : 'border-foreground'} flex gap-5 items-center`}>
+            <div className={`w-8 h-8 flex items-center justify-center font-bold text-sm ${step.completed ? 'text-zinc-400' : 'bg-foreground text-background'}`}>
               {step.completed ? '✓' : idx + 1}
             </div>
-            <div className="flex-1">
-              <span className={`text-lg font-black uppercase tracking-tight block ${step.completed ? 'line-through' : ''}`}>
-                {step.label}
-              </span>
-              <span className="text-[10px] font-bold text-zinc-500 block mt-1 uppercase tracking-wider">{step.description}</span>
+            <div>
+              <span className={`text-[13px] font-bold uppercase ${step.completed ? 'text-zinc-400' : ''}`}>{step.label}</span>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-tight">{step.description}</p>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       <button 
-        disabled={steps.every((s) => s.completed) || isSyncing}
+        disabled={steps?.every(s => s.completed) || isSyncing}
         onClick={handleSync}
-        className="w-full mt-10 py-5 bg-foreground text-background text-sm font-black uppercase tracking-[0.4em] hover:scale-[1.02] active:scale-95 disabled:opacity-20 transition-all shadow-xl flex items-center justify-center gap-3"
+        className="w-full mt-8 py-4 bg-foreground text-background text-[11px] font-bold uppercase tracking-[0.2em] transition-all disabled:opacity-10"
       >
-        {isSyncing ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            SYNCHRONIZING...
-          </>
-        ) : 'Synchronize Repairs'}
+        {isSyncing ? 'Synchronizing...' : 'Resolve Next Task'}
       </button>
-
-      {/* Decorative Serial ID */}
-      <div className="absolute bottom-4 right-4 text-[8px] font-mono opacity-20">STATE_HASH: {issueId.substring(0,8)}</div>
     </motion.div>
   );
 }
+export const TroubleshootingWorkflow = withClientOnly(TroubleshootingWorkflowInternal);
 
-// 6. Workflow Stepper: Ultra-Premium multi-step guide
-export function WorkflowStepper({ steps, title, id = "global-setup" }: { steps: Array<{ label: string, description: string }>, title: string, id?: string }) {
-  const [componentState, updateComponentState] = useTamboComponentState<{currentStep: number}>(`workflow-${id}`, { currentStep: 0 });
-  
-  if (!steps || steps.length === 0) {
-    return (
-      <div className="border-4 border-foreground p-12 bg-zinc-50 dark:bg-zinc-900/50 animate-pulse text-[12px] font-black uppercase tracking-[0.3em] text-center">
-        Syncing with Security Mainframe...
-      </div>
-    );
+// 7. Safety Audit: Clean Checklist
+function SafetyAuditInternal({ checks, score }: SafetyAuditProps) {
+  const { streamStatus } = useTamboStreamStatus<SafetyAuditProps>();
+
+  if (streamStatus.isPending) {
+    return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
-  const currentStep = componentState?.currentStep || 0;
-  const isCompleted = currentStep >= steps.length;
-
-  const nextStep = () => {
-    if (currentStep < steps.length) {
-      updateComponentState({ currentStep: currentStep + 1 });
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      updateComponentState({ currentStep: currentStep - 1 });
-    }
-  };
-
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border-[6px] border-foreground p-10 bg-background relative overflow-hidden shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] dark:shadow-[20px_20px_0px_0px_rgba(255,255,255,0.05)]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      layout
+      className="border border-foreground p-8 bg-background h-full flex flex-col"
     >
-      <div className="absolute top-0 right-0 p-6">
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 w-12 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-            <motion.div 
-              className="h-full bg-foreground"
-              initial={{ width: 0 }}
-              animate={{ width: `${(currentStep / steps.length) * 100}%` }}
-            />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
-            {Math.round((currentStep / steps.length) * 100)}%
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-10">
-        <header>
-          <motion.h2 
-            key={title}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-4xl font-black uppercase tracking-tighter leading-none mb-4"
-          >
-            {title}
-          </motion.h2>
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 bg-foreground text-background text-[10px] font-black uppercase tracking-widest">
-              Setup Protocol // Active
-            </div>
-            <span className="text-[10px] font-mono opacity-30">ID: {id}</span>
-          </div>
-        </header>
-
-        <div className="grid gap-4">
-          <AnimatePresence mode="wait">
-            {steps.map((step, idx) => {
-              const isActive = idx === currentStep;
-              const isPast = idx < currentStep;
-              
-              if (!isActive && !isPast && idx > currentStep + 1) return null;
-
-              return (
-                <motion.div 
-                  key={idx}
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ 
-                    opacity: isActive ? 1 : isPast ? 0.3 : 0.1, 
-                    x: 0,
-                    scale: isActive ? 1 : 0.98
-                  }}
-                  className={`flex gap-6 p-8 border-4 transition-all duration-300 relative
-                    ${isActive ? 'border-foreground bg-zinc-50 dark:bg-zinc-900/50' : 'border-zinc-100 dark:border-zinc-800'}
-                  `}
-                >
-                  <div className={`w-12 h-12 border-4 border-foreground flex items-center justify-center font-black text-xl shrink-0
-                    ${isPast ? 'bg-zinc-100 text-zinc-400 border-zinc-200' : isActive ? 'bg-foreground text-background' : 'bg-transparent text-foreground'}
-                  `}>
-                    {isPast ? '✓' : idx + 1}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h4 className={`text-lg font-black uppercase tracking-tight ${isPast ? 'text-zinc-400' : ''}`}>
-                      {step.label}
-                    </h4>
-                    {isActive && (
-                      <motion.p 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs font-bold text-zinc-500 leading-relaxed mt-2 max-w-xl"
-                      >
-                        {step.description}
-                      </motion.p>
-                    )}
-                  </div>
-
-                  {isActive && (
-                    <div className="absolute top-4 right-4">
-                      <div className="w-3 h-3 bg-red-600 rounded-full animate-ping" />
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-
-        <footer className="flex justify-between items-center pt-10 border-t-4 border-foreground/10">
-          <button 
-            onClick={prevStep}
-            disabled={currentStep === 0}
-            className="group flex items-center gap-2 px-6 py-3 border-2 border-foreground text-[10px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background disabled:opacity-20 transition-all font-mono"
-          >
-            <span className="group-hover:-translate-x-1 transition-transform">←</span> BACK
-          </button>
-
-          {!isCompleted ? (
-            <button 
-              onClick={nextStep}
-              className="px-12 py-4 bg-foreground text-background text-sm font-black uppercase tracking-[0.3em] hover:scale-[1.05] active:scale-95 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]"
-            >
-              Confirm Step
-            </button>
-          ) : (
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600">Workflow Verified</span>
-              <span className="text-[8px] font-mono opacity-40 uppercase">System Sync Active</span>
-            </div>
-          )}
-        </footer>
-      </div>
-
-      {/* Grid Pattern Background */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:40px_40px]" />
-    </motion.div>
-  );
-}
-
-// 7. Safety Audit: Real-time visual security scan
-export function SafetyAudit({ checks, score }: { checks: Array<{ category: string, status: 'PASS' | 'FAIL' | 'WARN', message: string }>, score: number }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="border-8 border-foreground p-10 bg-zinc-950 text-white relative overflow-hidden"
-    >
-      <div className="flex justify-between items-start mb-12">
+      <div className="flex justify-between items-start mb-10">
         <div>
-          <h2 className="text-5xl font-black uppercase tracking-tighter italic">Security Audit</h2>
-          <p className="text-[10px] font-mono opacity-50 uppercase tracking-[0.5em] mt-2">Live Cloud Environment Scan</p>
+          <h2 className="text-3xl font-black uppercase italic tracking-tighter">Security Audit</h2>
+          <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mt-1">Full Infrastructure Scan</p>
         </div>
         <div className="text-right">
-          <div className="text-6xl font-black leading-none">{score}</div>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-40">System Score</div>
+          <div className="text-5xl font-black">{score || 0}</div>
+          <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Health Score</span>
         </div>
       </div>
 
-      <div className="grid gap-1 mb-12">
-        {checks.map((check, idx) => (
-          <div key={idx} className="flex items-center gap-6 p-4 hover:bg-white/5 transition-colors group">
-            <div className={`w-3 h-3 rotate-45 shrink-0 ${
-              check.status === 'PASS' ? 'bg-green-500' : check.status === 'FAIL' ? 'bg-red-600' : 'bg-yellow-500'
-            }`} />
+      <div className="space-y-2 flex-1">
+        {checks?.map((check, idx) => (
+          <div key={idx} className="flex items-center gap-6 p-4 border border-zinc-50 dark:border-zinc-950 transition-all">
+            <div className={`w-2 h-2 rounded-full ${check.status === 'PASS' ? 'bg-foreground' : 'bg-red-600'}`} />
             <div className="flex-1">
-              <div className="flex justify-between items-baseline">
-                <span className="text-[12px] font-black uppercase tracking-wider">{check.category}</span>
-                <span className={`text-[10px] font-bold ${
-                  check.status === 'PASS' ? 'text-green-500' : check.status === 'FAIL' ? 'text-red-600' : 'text-yellow-500'
-                }`}>
-                  {check.status}
-                </span>
+              <div className="flex justify-between">
+                <span className="text-[12px] font-bold uppercase tracking-tight">{check.category}</span>
+                <span className={`text-[10px] font-bold ${check.status === 'PASS' ? 'text-zinc-400' : 'text-red-500'}`}>{check.status}</span>
               </div>
-              <p className="text-[10px] opacity-40 font-medium group-hover:opacity-80 transition-opacity">{check.message}</p>
+              <p className="text-[11px] text-zinc-400 font-medium leading-tight">{check.message}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="flex gap-4">
-        <button className="flex-1 py-4 bg-white text-black text-xs font-black uppercase tracking-widest hover:invert transition-all">
-          Patch All Vulnerabilities
-        </button>
-        <button className="px-8 border-2 border-white/20 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-          JSON EXPORT
-        </button>
-      </div>
-
-      {/* Decorative Radar Sweep */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-white/20 animate-[radar_4s_linear_infinite]" />
-      <style jsx>{`
-        @keyframes radar {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(1000%); }
-        }
-      `}</style>
+      <button className="w-full mt-10 py-4 border border-foreground text-[10px] font-bold uppercase tracking-widest hover:bg-foreground hover:text-background transition-all">
+        Generate Full Audit Report
+      </button>
     </motion.div>
   );
 }
+export const SafetyAudit = withClientOnly(SafetyAuditInternal);
 
-// 9. Cloud Achievement: Gamified Milestone Component
-export function CloudAchievement({ title, points, description, icon = "🏆" }: { title: string, points: number, description: string, icon?: string }) {
+// 10. Mainframe Report: Mandatory Narrative Wrapper
+function MainframeReportInternal({ title, content, status }: MainframeReportProps) {
+  const { streamStatus } = useTamboStreamStatus<MainframeReportProps>();
+
+  if (streamStatus.isPending) {
+    return <div className="h-48 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98, filter: "blur(4px)" }}
+      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      layout
+      className="border border-foreground bg-background p-8 relative overflow-hidden group/mainframe"
+    >
+      <motion.div 
+        animate={{ 
+          opacity: [0.05, 0.15, 0.05],
+          x: [-2, 2, -2]
+        }}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+        className="absolute top-0 right-0 p-4"
+      >
+        <Terminal size={40} className="text-foreground" />
+      </motion.div>
+      
+      <div className="flex items-center gap-4 mb-6">
+        <div className="h-1 w-8 bg-foreground" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.3em]">{title || "TECHNICAL_BRIEFING"}</span>
+        {status && (
+          <span className="text-[9px] font-mono bg-foreground text-background px-2 py-0.5 ml-auto">
+            {status}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-4 prose prose-invert max-w-none text-[14px] leading-relaxed text-foreground font-medium selection:bg-foreground selection:text-background">
+        <ReactMarkdown>
+          {content || ""}
+        </ReactMarkdown>
+      </div>
+
+      <div className="mt-8 flex gap-1">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="w-1 h-1 bg-foreground/20 rounded-full" />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+export const MainframeReport = withClientOnly(MainframeReportInternal);
+
+// 11. Cloud Achievement: Gamified Reward
+function CloudAchievementInternal({ title, points, description, icon }: CloudAchievementProps) {
+  const { streamStatus } = useTamboStreamStatus<CloudAchievementProps>();
+
+  if (streamStatus.isPending) {
+    return <div className="h-64 w-full bg-foreground animate-pulse border border-foreground" />;
+  }
+
   return (
     <motion.div 
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="border-[6px] border-foreground p-8 bg-zinc-950 text-white relative overflow-hidden flex items-center gap-8 shadow-2xl"
+      layout
+      className="border-2 border-foreground bg-foreground text-background p-8 relative overflow-hidden group"
     >
-      <div className="text-6xl grayscale hover:grayscale-0 transition-all duration-500 cursor-pointer scale-125">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <div className="flex items-baseline gap-4 mb-2">
-          <h3 className="text-2xl font-black uppercase tracking-tighter">{title}</h3>
-          <span className="text-green-500 font-mono text-sm">+{points} PTS</span>
+      {/* Background Glow Effect */}
+      <motion.div 
+        animate={{ 
+          opacity: [0.1, 0.3, 0.1],
+          scale: [1, 1.2, 1]
+        }}
+        transition={{ duration: 4, repeat: Infinity }}
+        className="absolute inset-0 bg-white/10 blur-3xl pointer-events-none"
+      />
+
+      <div className="relative z-10 text-center flex flex-col items-center">
+        <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">
+          {icon || "🏆"}
         </div>
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest leading-relaxed">
-          {description}
+        
+        <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-1">
+          {title || "ACHIEVEMENT_UNLOCKED"}
+        </h3>
+        
+        <div className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-6">
+          System Upgrade Detected // +{points || 0} XP
+        </div>
+
+        <p className="text-sm font-medium leading-relaxed opacity-90 max-w-[240px]">
+          {description || "High-impact security protocol successfully established."}
         </p>
+        
+        <div className="mt-8 w-24 h-[1px] bg-background/30" />
       </div>
-      
-      {/* Decorative Glitch Effect */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 -rotate-45 translate-x-16 -translate-y-16" />
     </motion.div>
   );
 }
+export const CloudAchievement = withClientOnly(CloudAchievementInternal);
 
-// 8. Free Tier Sentinel: Interactive Cloud Tier Guard
-export function FreeTierSentinel({ data, isLoading }: { data: { score: number, leakage: number, traps: Array<{ resource: string, cost: number, trapType: string }> }, isLoading: boolean }) {
-  if (isLoading) return <div className="h-80 w-full bg-zinc-100 dark:bg-zinc-900 animate-pulse border-8 border-foreground/10" />;
+// 12. Workflow Stepper: Interactive Guide
+function WorkflowStepperInternal({ id, title, steps }: WorkflowStepperProps) {
+  const { streamStatus } = useTamboStreamStatus<WorkflowStepperProps>();
+  const [activeStep, setActiveStep] = useState(0);
 
-  const isCritical = data.leakage > 0;
+  if (streamStatus.isPending) {
+    return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border-[8px] border-foreground p-12 bg-background relative overflow-hidden shadow-[30px_30px_0px_0px_rgba(0,0,0,1)] dark:shadow-[30px_30px_0px_0px_rgba(255,255,255,0.05)]"
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      layout
+      className="border border-foreground bg-background p-8"
     >
-      {/* Cinematic Pulse Header */}
-      <div className="flex justify-between items-start mb-16">
-        <div>
-          <h2 className="text-6xl font-black uppercase tracking-tighter leading-[0.8]">Sentinel</h2>
-          <div className="flex items-center gap-3 mt-4">
-            <div className={`w-3 h-3 ${isCritical ? 'bg-red-600 animate-ping' : 'bg-green-500'}`} />
-            <span className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40">Tier Boundary Watchdog</span>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-black font-mono">CODE: {data.score}/100</div>
-          <p className="text-[8px] font-black uppercase tracking-widest opacity-30 mt-1">Health index</p>
-        </div>
+      <div className="mb-8">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">Session Protocol // {id || "LIVE"}</div>
+        <h3 className="text-2xl font-black uppercase italic tracking-tighter">{title || "GUIDED_ONBOARDING"}</h3>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-12">
-        {/* Radar/Meter Visual */}
-        <div className="relative aspect-square border-4 border-foreground/5 flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-900/30">
-           <div className="absolute inset-4 border-2 border-dashed border-foreground/10 rounded-full animate-[spin_20s_linear_infinite]" />
-           <div className="absolute inset-10 border-2 border-dashed border-foreground/20 rounded-full animate-[spin_15s_linear_reverse_infinite]" />
-           <span className="text-7xl font-black tracking-tighter">${data.leakage}</span>
-           <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Monthly Leakage</span>
-        </div>
-
-        <div className="space-y-8">
-           <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider opacity-40">Identified Paid Traps</span>
-              <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-900">
-                <motion.div 
-                   className={`h-full ${isCritical ? 'bg-red-600' : 'bg-foreground'}`}
-                   initial={{ width: 0 }}
-                   animate={{ width: `${Math.min(100, (data.traps.length / 5) * 100)}%` }}
-                />
+      <div className="space-y-6">
+        {steps?.map((step, idx) => (
+          <div key={idx} className="flex gap-6 group cursor-pointer" onClick={() => setActiveStep(idx)}>
+            <div className="flex flex-col items-center">
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-all
+                ${idx === activeStep ? 'bg-foreground text-background border-foreground' : 
+                  idx < activeStep ? 'bg-zinc-200 border-zinc-200 text-zinc-500' : 'border-zinc-200 text-zinc-300'}`}>
+                {idx < activeStep ? "✓" : idx + 1}
               </div>
-           </div>
-
-           <div className="grid gap-4">
-             {data.traps.map((trap, i) => (
-               <div key={i} className="flex justify-between items-center p-4 border-b-2 border-foreground/5 group hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
-                 <div className="flex flex-col">
-                   <span className="text-sm font-black uppercase tracking-tight">{trap.resource}</span>
-                   <span className="text-[9px] font-mono opacity-40 italic">{trap.trapType}</span>
-                 </div>
-                 <div className="text-right">
-                   <span className="text-base font-black text-red-600">+${trap.cost}</span>
-                 </div>
-               </div>
-             ))}
-           </div>
-        </div>
+              {idx !== steps.length - 1 && (
+                <div className={`w-[2px] flex-1 my-2 transition-colors ${idx < activeStep ? 'bg-zinc-200' : 'bg-zinc-100'}`} />
+              )}
+            </div>
+            
+            <div className={`pb-6 ${idx === activeStep ? 'opacity-100' : 'opacity-40'} transition-opacity`}>
+              <span className="text-[12px] font-bold uppercase tracking-tight block mb-1">{step.label}</span>
+              {idx === activeStep && (
+                <motion.p 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="text-[11px] text-zinc-500 leading-relaxed uppercase"
+                >
+                  {step.description}
+                </motion.p>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="mt-16 flex flex-col gap-4">
-         <button className="w-full py-6 bg-foreground text-background text-sm font-black uppercase tracking-[0.5em] hover:invert transition-all transform hover:scale-[1.01] active:scale-95 shadow-2xl">
-            Synchronize Tier Downgrade
-         </button>
-         <div className="flex justify-between text-[8px] font-mono opacity-20 uppercase">
-           <span>Protocol: safeops_bndry_v1</span>
-           <span>Last Scan: {new Date().toLocaleTimeString()}</span>
-         </div>
+      <div className="mt-4 pt-8 border-t border-zinc-100 flex justify-between items-center">
+        <button 
+          onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
+          className="text-[10px] font-bold uppercase tracking-widest hover:underline disabled:opacity-20"
+          disabled={activeStep === 0}
+        >
+          Previous
+        </button>
+        <button 
+          onClick={() => setActiveStep(prev => Math.min((steps?.length || 1) - 1, prev + 1))}
+          className="px-6 py-2 bg-foreground text-background text-[10px] font-bold uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-20"
+          disabled={activeStep === (steps?.length || 1) - 1}
+        >
+          Next Step
+        </button>
       </div>
-
-      {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
     </motion.div>
   );
 }
+export const WorkflowStepper = withClientOnly(WorkflowStepperInternal);
+
+// 13. Free Tier Sentinel: Cost Trap Hunter
+function FreeTierSentinelInternal({ data }: FreeTierSentinelProps) {
+  const { streamStatus } = useTamboStreamStatus<FreeTierSentinelProps>();
+
+  if (streamStatus.isPending) {
+    return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      layout
+      className="border border-foreground bg-background overflow-hidden"
+    >
+      <div className="bg-red-600 text-white p-8">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldAlert size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Leakage Alert</span>
+            </div>
+            <h2 className="text-4xl font-black italic uppercase tracking-tighter">Tier Drift</h2>
+          </div>
+          <div className="text-right">
+            <div className="text-5xl font-black text-white/90">-{data?.score || 0}%</div>
+            <span className="text-[9px] font-bold uppercase text-white/50">Efficiency Loss</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-8 space-y-8">
+        <div className="flex justify-between items-end border-b border-zinc-100 pb-6 uppercase">
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 block mb-1">Monthly Exposure</span>
+            <span className="text-3xl font-black">${data?.leakage || 0}</span>
+          </div>
+          <Zap size={24} className="text-red-600 mb-1" />
+        </div>
+
+        <div className="space-y-4">
+          <span className="text-[10px] font-bold uppercase text-zinc-400">Identified Cost Traps:</span>
+          {data?.traps?.map((trap, i) => (
+            <div key={i} className="flex justify-between items-center p-4 border border-zinc-50 hover:border-foreground transition-all">
+              <div>
+                <span className="text-[12px] font-bold uppercase">{trap.resource}</span>
+                <p className="text-[10px] text-zinc-400 uppercase">{trap.trapType}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[12px] font-bold text-red-600">${trap.cost}/mo</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button className="w-full py-4 bg-foreground text-background text-[11px] font-bold uppercase tracking-[0.2em] transition-all hover:scale-[0.98]">
+          Initiate Tier Downgrade
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+export const FreeTierSentinel = withClientOnly(FreeTierSentinelInternal);

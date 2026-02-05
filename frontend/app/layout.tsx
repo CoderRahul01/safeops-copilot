@@ -29,16 +29,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-foreground bg-background`}
       >
-        <TamboClientProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <TamboClientProvider>
             <div className="relative min-h-screen overflow-hidden">
               <div className="hud-overlay" />
               <div className="vignette" />
               <div className="crt-grain" />
               {children}
             </div>
-          </AuthProvider>
-        </TamboClientProvider>
+          </TamboClientProvider>
+        </AuthProvider>
       </body>
     </html>
   );

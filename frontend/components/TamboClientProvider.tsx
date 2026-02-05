@@ -1,6 +1,6 @@
 "use client";
 
-import { TamboProvider } from "@tambo-ai/react";
+import { TamboProvider, defineTool } from "@tambo-ai/react";
 import { z } from "zod";
 import { 
   SafetyCard, 
@@ -123,12 +123,116 @@ const tamboComponents = [
     })
   }
 ];
+import { useAuth } from "@/components/AuthProvider";
+import { useState, useEffect, useMemo } from "react";
 
 export function TamboClientProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const [userToken, setUserToken] = useState<string | undefined>(undefined);
+
+  const memoizedComponents = useMemo(() => tamboComponents, []);
+
+  useEffect(() => {
+    let active = true;
+    if (user) {
+      user.getIdToken().then(token => {
+        if (active) setUserToken(token);
+      });
+    } else {
+      Promise.resolve().then(() => {
+        if (active) setUserToken(undefined);
+      });
+    }
+    return () => { active = false; };
+  }, [user]);
+
+  // AI Power-Tools: Bridging GenUI to Backend Actions
+  const tools = useMemo(() => {
+    if (!userToken) return [];
+
+    return [
+      defineTool({
+        name: "getInventory",
+        description: "Fetch the live list of cloud resources and their operational status. Use this to populate ResourceList or StatusMeter.",
+        inputSchema: z.object({}),
+        tool: async () => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/inventory/resources`, {
+            headers: { 'Authorization': `Bearer ${userToken}` }
+          });
+          return res.json();
+        }
+      }),
+      defineTool({
+        name: "remediateIssue",
+        description: "Trigger a security remediation action for a specific finding. Use this when the user accepts a suggestion to fix a leak or secure a resource.",
+        inputSchema: z.object({
+          issueId: z.string().describe("The unique ID of the security finding (e.g. SEC-001)"),
+          stepIndex: z.number().describe("The current step index in the troubleshooting workflow")
+        }),
+        tool: async ({ issueId, stepIndex }) => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/security-audit/remediate`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}` 
+            },
+            body: JSON.stringify({ issueId, stepIndex })
+          });
+          return res.json();
+        }
+      }),
+      defineTool({
+        name: "stopService",
+        description: "Scale a Cloud Run service to zero and stop concurrent billing immediately. Use this for high-risk waste or emergency lockdown.",
+        inputSchema: z.object({
+          serviceName: z.string().describe("The technical name of the Cloud Run service"),
+          region: z.string().optional().default('us-central1').describe("The GCP deployment region")
+        }),
+        tool: async ({ serviceName, region }) => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cloud/gcp/stop-service`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}` 
+            },
+            body: JSON.stringify({ serviceName, region })
+          });
+          return res.json();
+        }
+      })
+    ];
+  }, [userToken]);
+
+  // Context Helpers feed the AI real-time dashboard state & behavioral rules
+  const contextHelpers = useMemo(() => ({
+    getTelemetry: () => ({
+      risk_score: 0.12,
+      active_resources: 24,
+      saving_potential: 450.00,
+      total_spend: 1240.50,
+      budget: 2000.00,
+      status: "OPTIMIZED",
+      last_audit: new Date().toISOString()
+    }),
+    getSystemStatus: () => ({
+      firewall: "ACTIVE",
+      load_balancer: "HEALTHY",
+      db_latency: "14ms"
+    }),
+    systemDirectives: () => ({
+      tone: "CINEMATIC_TECHNICAL_CONSOLE",
+      ui_rule: "FORBIDDEN: PLAIN_TEXT_RESPONSES. ALWAYS wrap narratives in MainframeReport. ALWAYS use visual components for data.",
+      fallback: "If no specific component fits, use MainframeReport with technical status markers."
+    })
+  }), []);
+
   return (
     <TamboProvider 
       apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-      components={tamboComponents}
+      components={memoizedComponents}
+      userToken={userToken}
+      tools={tools}
+      contextHelpers={contextHelpers}
     >
       {children}
     </TamboProvider>

@@ -33,14 +33,14 @@ router.post('/store', verifyToken, async (req, res) => {
 // Route to get context based on a query
 router.get('/context', verifyToken, async (req, res) => {
     try {
-        const { q } = req.query;
+        const { q, threadId } = req.query;
         const userId = req.user.uid;
 
         if (!q) {
             return res.status(400).json({ error: 'Query (q) is required' });
         }
 
-        const context = await memoryService.searchContext(userId, q);
+        const context = await memoryService.searchContext(userId, q, threadId);
         res.json({ context });
     } catch (error) {
         console.error('❌ [AI Module] Get context error:', error.message);

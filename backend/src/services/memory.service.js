@@ -15,10 +15,11 @@ class MemoryService {
      */
     async addInteraction(userId, content, metadata = {}) {
         try {
-            console.log(`🧠 [MemoryService] Storing memory for ${userId}`);
+            const threadId = metadata.threadId || 'default';
+            console.log(`🧠 [MemoryService] Storing memory for User:${userId} Thread:${threadId}`);
             await this.client.add({
                 content,
-                containerTags: [`user_${userId}`],
+                containerTags: [`user_${userId}`, `thread_${threadId}`],
                 metadata: {
                     ...metadata,
                     timestamp: new Date().toISOString(),
@@ -36,12 +37,15 @@ class MemoryService {
      * @param {string} query - Search query
      * @returns {Promise<Array>} - Search results
      */
-    async searchContext(userId, query) {
+    async searchContext(userId, query, threadId = null) {
         try {
-            console.log(`🔍 [MemoryService] Searching memory for context: "${query}"`);
+            console.log(`🔍 [MemoryService] Searching memory for context: "${query}" (Thread: ${threadId || 'ALL'})`);
+            const tags = [`user_${userId}`];
+            if (threadId) tags.push(`thread_${threadId}`);
+            
             const response = await this.client.search.documents({
                 q: query,
-                containerTags: [`user_${userId}`]
+                containerTags: tags
             });
             return response.results || [];
         } catch (error) {
