@@ -10,14 +10,12 @@
   --zinc-800: #27272a;
   --zinc-900: #18181b;
   --primary: #000000;
-}
-
-@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: "Inter", "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", monospace;
 }
+
 
 @media (prefers-color-scheme: dark) {
   :root {

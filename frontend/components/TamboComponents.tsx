@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useTamboComponentState } from "@tambo-ai/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Terminal } from "lucide-react";
