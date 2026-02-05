@@ -1,28 +1,35 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SafeOps Co-pilot Backend - Real-time cloud safety monitoring",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "bun --watch index.js",
-    "start": "bun index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "emulator": "firebase emulators:start --only firestore",
+    "emulator:ui": "firebase emulators:start --only firestore,ui",
+    "dev:emulator": "concurrently \"npm run emulator\" \"npm run dev\"",
+    "setup": "bun setup-dev.js"
   },
-  "keywords": [],
+  "keywords": ["cloud-safety", "firestore", "fastify", "real-time"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@fastify/cors": "^10.0.0",
-    "@google-cloud/firestore": "^8.3.0",
-    "@google-cloud/logging": "^11.2.1",
-    "cors": "^2.8.6",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "fastify": "^5.7.4",
-    "pino-pretty": "^13.1.3",
+    "express": "^4.21.2",
+    "@aws-sdk/client-cost-explorer": "^3.744.0",
+    "@aws-sdk/client-ec2": "^3.744.0",
+    "@aws-sdk/client-lambda": "^3.744.0",
+    "@google-cloud/firestore": "^8.3.0",
+    "google-auth-library": "^9.15.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.1",
+    "firebase-tools": "^15.5.1"
   }
 }

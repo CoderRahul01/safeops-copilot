@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to deployments collection
+    match /deployments/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to budgets collection
+    match /budgets/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read access to health check collection
+    match /_health_check/{document} {
+      allow read: if true;
+    }
+  }
+}

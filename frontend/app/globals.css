@@ -2,40 +2,59 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
+  --zinc-50: #fafafa;
+  --zinc-100: #f4f4f5;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-800: #27272a;
+  --zinc-900: #18181b;
+  --primary: #000000;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Inter", "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #000000;
+    --foreground: #ffffff;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* Strict Monochrome Aesthetic */
+h1, h2, h3, h4, .font-black {
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
 }
 
 ::selection {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
+  background: #000000;
+  color: #ffffff;
 }
 
-/* Custom Scrollbar for Premium Feel */
+.dark ::selection {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -43,18 +62,34 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 10px;
+  background: var(--zinc-800);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+.dark ::webkit-scrollbar-thumb {
+  background: var(--zinc-200);
 }
 
+/* Glassmorphism Refined for B&W */
 @layer utilities {
   .bg-glass {
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
+  
+  .dark .bg-glass {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Micro-animations */
+@keyframes subtle-float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: subtle-float 4s ease-in-out infinite;
 }
