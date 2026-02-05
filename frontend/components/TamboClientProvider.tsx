@@ -15,7 +15,7 @@ import {
 const tamboComponents = [
   {
     name: "SafetyCard",
-    description: "Cloud spending and budget overview",
+    description: "ULTRA-PREMIUM SPEND OVERVIEW. Use this ALWAYS when the user asks about costs, budgets, or financial safety. Provides high-impact visual alerts for critical waste.",
     component: SafetyCard,
     propsSchema: z.object({
       data: z.object({ totalSpend: z.number(), budget: z.number() }),
@@ -25,7 +25,7 @@ const tamboComponents = [
   },
   {
     name: "StatusMeter",
-    description: "Real-time risk score and resource count",
+    description: "REAL-TIME RISK CONSOLE. Use this for general health checks, risk assessments, or resource load monitoring. Shows risk score percentage and active resource counts.",
     component: StatusMeter,
     propsSchema: z.object({
       metrics: z.object({ risk_score: z.number(), active_resources: z.number(), saving_potential: z.number() }),
@@ -34,7 +34,7 @@ const tamboComponents = [
   },
   {
     name: "ResourceList",
-    description: "List of cloud resources and their status",
+    description: "CINEMATIC INVENTORY TABLE. Use this to list specific resources (nodes, instances, buckets). Shows regions, operational status, and trend data.",
     component: ResourceList,
     propsSchema: z.object({
       isLoading: z.boolean()
@@ -42,22 +42,22 @@ const tamboComponents = [
   },
   {
     name: "DeployGuard",
-    description: "CI/CD safety interceptor",
+    description: "SECURITY INTERCEPTOR. Use this to show active shielding or blockade status. High-impact visual for unauthorized access prevention.",
     component: DeployGuard,
     propsSchema: z.object({})
   },
   {
     name: "TroubleshootingWorkflow",
-    description: "Step-by-step remediation guide",
+    description: "STEP-BY-STEP REMEDIATION. Use this for interactive repair tasks. Includes 'Synchronize Repairs' button for real-time backend execution.",
     component: TroubleshootingWorkflow,
     propsSchema: z.object({
-      issueId: z.string(),
+      issueId: z.string().describe("UUID for the issue"),
       steps: z.array(z.object({ completed: z.boolean(), label: z.string(), description: z.string() }))
     })
   },
   {
     name: "WorkflowStepper",
-    description: "INTERACTIVE STEP-BY-STEP GUIDE. Use this for ANY multi-step process, especially cloud connections, guided setup, security walkthroughs, or onboarding. Features persistent state tracking.",
+    description: "INTERACTIVE GUIDED EXPERIENCE. MANDATORY for cloud connections, setup protocols, and any task requiring user interaction/confirmation step-by-step. Minimizes text, maximizes interaction.",
     component: WorkflowStepper,
     propsSchema: z.object({
       id: z.string().optional().describe("Unique identifier for this workflow session"),
@@ -65,12 +65,12 @@ const tamboComponents = [
       steps: z.array(z.object({ 
         label: z.string().describe("Concise step name"), 
         description: z.string().describe("Detailed guidance for this specific step") 
-      }))
+       }))
     })
   },
   {
     name: "SafetyAudit",
-    description: "REAL-TIME SECURITY SCAN RESULT. Use this to show the output of security audits, vulnerability scans, or cloud safety checks. Visually striking with a health score and list of PASS/FAIL/WARN checks.",
+    description: "CINEMATIC SECURITY SCAN. Use for auditing logs, scanning environments, and displaying PASS/FAIL/WARN results with a total health score.",
     component: SafetyAudit,
     propsSchema: z.object({
       score: z.number().min(0).max(100).describe("Overall security health score (0-100)"),

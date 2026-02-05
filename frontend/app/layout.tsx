@@ -31,7 +31,12 @@ export default function RootLayout({
       >
         <TamboClientProvider>
           <AuthProvider>
-            {children}
+            <div className="relative min-h-screen overflow-hidden">
+              <div className="hud-overlay" />
+              <div className="vignette" />
+              <div className="crt-grain" />
+              {children}
+            </div>
           </AuthProvider>
         </TamboClientProvider>
       </body>

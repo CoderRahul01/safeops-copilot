@@ -1,57 +1,135 @@
 "use client";
 
-import React from "react";
-import { LayoutDashboard, ShieldAlert, Zap, Settings, BarChart3, Database } from "lucide-react";
+import React, { useState } from "react";
+import { 
+  LayoutDashboard, 
+  Database, 
+  BarChart3, 
+  ShieldCheck, 
+  UserPlus, 
+  Cloud,
+  ChevronRight
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ className, activeView, onViewChange }: { className?: string, activeView: string, onViewChange: (view: string) => void }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const navItems = [
-    { icon: <LayoutDashboard size={18} />, label: "Dashboard", active: true },
-    { icon: <ShieldAlert size={18} />, label: "Safety Alerts", count: 2 },
-    { icon: <Zap size={18} />, label: "Deploy Guard" },
-    { icon: <Database size={18} />, label: "Resources" },
-    { icon: <BarChart3 size={18} />, label: "Billing Analytics" },
-    { icon: <Settings size={18} />, label: "Settings" },
+    { icon: <LayoutDashboard size={18} />, label: "Dashboard" },
+    { icon: <Database size={18} />, label: "Inventory" },
+    { icon: <BarChart3 size={18} />, label: "Billing" },
+    { icon: <ShieldCheck size={18} />, label: "Security Audit" },
+    { icon: <UserPlus size={18} />, label: "Onboard" },
+    { icon: <Cloud size={18} />, label: "Cloud" },
   ];
 
   return (
-    <aside className={`w-64 h-full bg-background flex flex-col pt-8 ${className}`}>
-      <div className="px-8 mb-12 flex items-center gap-3">
-        <div className="w-6 h-6 bg-foreground rounded-sm" />
-        <span className="font-black tracking-[0.2em] text-xs uppercase">SafeOps</span>
+    <motion.aside 
+      initial={false}
+      animate={{ width: isExpanded ? 280 : 80 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className={`h-full bg-background flex flex-col pt-8 relative z-20 ${className}`}
+    >
+      {/* Toggle Button */}
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="absolute -right-4 top-10 w-8 h-8 bg-foreground text-background flex items-center justify-center rounded-full border-4 border-background hover:scale-110 transition-transform z-30"
+      >
+        <motion.div
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+        >
+          <ChevronRight size={16} />
+        </motion.div>
+      </button>
+
+      <div className={`px-6 mb-12 flex items-center gap-4 ${!isExpanded && 'justify-center'}`}>
+        <div className="w-8 h-8 bg-foreground rounded-sm shrink-0 flex items-center justify-center text-background font-black text-lg">S</div>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.span 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="font-black tracking-[0.2em] text-xs uppercase whitespace-nowrap"
+            >
+              SafeOps
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 px-4 space-y-2">
         {navItems.map((item, idx) => (
-          <div 
+          <motion.div 
             key={idx}
-            className={`flex items-center justify-between px-4 py-3 rounded cursor-not-allowed group transition-all
-              ${item.active ? 'bg-foreground text-background shadow-lg' : 'text-zinc-500 hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900'}`}
+            whileHover={{ x: 4 }}
+            onClick={() => onViewChange(item.label)}
+            className={`flex items-center gap-4 px-4 py-3 rounded cursor-pointer group transition-all relative
+              ${item.label === activeView ? 'bg-foreground text-background shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]' : 'text-zinc-500 hover:text-foreground hover:bg-zinc-50 dark:hover:bg-zinc-900 border-l-2 border-transparent hover:border-foreground'}`}
           >
-            <div className="flex items-center gap-4">
-              <span className={item.active ? 'text-background' : 'text-zinc-400 group-hover:text-foreground'}>
-                {item.icon}
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+            <div className={`shrink-0 ${item.label === activeView ? 'text-background' : 'text-zinc-400 group-hover:text-foreground group-hover:scale-110 transition-transform'}`}>
+              {item.icon}
             </div>
-            {item.count && (
-              <span className={`text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full border
-                ${item.active ? 'border-background bg-background text-foreground' : 'border-foreground bg-foreground text-background'}`}>
-                {item.count}
-              </span>
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.span 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+                >
+                  {item.label}
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {!isExpanded && (
+              <div className="absolute left-full ml-4 px-2 py-1 bg-foreground text-background text-[8px] font-black uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                {item.label}
+              </div>
             )}
-          </div>
+          </motion.div>
         ))}
       </nav>
 
-      <div className="p-8 border-t border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800" />
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase">Admin User</span>
-            <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-tighter">Pro Plan // Active</span>
+      <div className={`p-6 border-t border-zinc-100 dark:border-zinc-800 ${!isExpanded && 'flex flex-col items-center'}`}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0 border-2 border-foreground/10 overflow-hidden relative group">
+            <div className="w-full h-full bg-gradient-to-br from-zinc-400 to-zinc-600" />
+            <div className="absolute inset-0 bg-red-600 opacity-0 group-hover:opacity-20 transition-opacity" />
           </div>
+          {isExpanded && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col overflow-hidden"
+            >
+              <span className="text-[10px] font-black uppercase truncate">Rahul Pandey</span>
+              <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-tighter truncate">Enterprise Protocol</span>
+            </motion.div>
+          )}
         </div>
+
+        {/* Data Stream Miniature Console */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-zinc-900 rounded p-3 font-mono text-[8px] space-y-1 border border-white/5 overflow-hidden"
+            >
+              <div className="flex justify-between text-zinc-600">
+                <span>AUTH_STREAM</span>
+                <span className="text-green-500/50 animate-pulse">●</span>
+              </div>
+              <div className="text-zinc-500 truncate">{`> FETCHING_METRICS...`}</div>
+              <div className="text-zinc-400 truncate tracking-tighter">{`[OK] GCP_RUN_RESOURCES_SYNCED`}</div>
+              <div className="text-zinc-600 italic">UPTIME: 14:32:01:44</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

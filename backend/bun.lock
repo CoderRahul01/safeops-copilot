@@ -14,6 +14,7 @@
         "express": "^4.21.2",
         "firebase-admin": "^13.0.0",
         "google-auth-library": "^9.15.0",
+        "supermemory": "^4.0.0",
         "uuid": "^13.0.0",
       },
       "devDependencies": {
@@ -1254,6 +1255,8 @@
     "strnum": ["strnum@1.1.2", "", {}, "sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA=="],
 
     "stubs": ["stubs@3.0.0", "", {}, "sha512-PdHt7hHUJKxvTCgbKX9C1V/ftOcjJQgz8BZwNfV5c4B6dcGqlpelTbJ999jBGZ2jYiPAwcX5dP6oBwVlBlUbxw=="],
+
+    "supermemory": ["supermemory@4.0.0", "", {}, "sha512-xMN05PQ8kTv8DuXa2qf8h/9LaRI7v1Kz3Tutt97JPq+PzhGabKLv5YVbSgqHiPX5yXcSUBVBNYPPbhAQMF6GYQ=="],
 
     "superstatic": ["superstatic@10.0.0", "", { "dependencies": { "basic-auth-connect": "^1.1.0", "commander": "^10.0.0", "compression": "^1.7.0", "connect": "^3.7.0", "destroy": "^1.0.4", "glob-slasher": "^1.0.1", "is-url": "^1.2.2", "join-path": "^1.1.1", "lodash": "^4.17.19", "mime-types": "^2.1.35", "minimatch": "^6.1.6", "morgan": "^1.8.2", "on-finished": "^2.2.0", "on-headers": "^1.0.0", "path-to-regexp": "^1.9.0", "router": "^2.0.0", "update-notifier-cjs": "^5.1.6" }, "optionalDependencies": { "re2": "^1.17.7" }, "bin": { "superstatic": "lib/bin/server.js" } }, "sha512-4xIenBdrIIYuqXrIVx/lejyCh4EJwEMPCwfk9VGFfRlhZcdvzTd3oVOUILrAGfC4pFUWixzPgaOVzAEZgeYI3w=="],
 

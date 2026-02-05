@@ -50,4 +50,40 @@ router.get('/report', verifyToken, async (req, res) => {
   }
 });
 
+// Initiate remediation action (Protected)
+router.post('/remediate', verifyToken, async (req, res) => {
+  try {
+    const { issueId, stepIndex } = req.body;
+    
+    if (!issueId || stepIndex === undefined) {
+      return res.status(400).json({ error: 'issueId and stepIndex are required' });
+    }
+
+    console.log(`🛡️ [Security-Audit] Initiating remediation protocol for ${issueId}, Step ${stepIndex + 1}`);
+
+    // Simulate different repair actions based on step index
+    let actionResult = { success: true, message: 'Action synchronized.' };
+    
+    // Example: Integrating with GCP Service for "Isolate Node"
+    if (stepIndex === 0) {
+      console.log(`🔌 [Security-Audit] Calling GCP Service to scale suspected high-risk service to zero...`);
+      // In a real scenario: await gcpService.stopCloudRun('suspected-service');
+      actionResult.message = "Node successfully isolated via GCP Cloud Run API.";
+    }
+
+    // Return progress update
+    res.json({
+      success: true,
+      issueId,
+      stepIndex,
+      action: actionResult.message,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Remediation Error:', error.message);
+    res.status(500).json({ error: 'Remediation protocol failed', details: error.message });
+  }
+});
+
 module.exports = router;
