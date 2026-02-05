@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Sidebar } from "../components/Sidebar";
 import { 
   SafetyCard, 
@@ -9,6 +9,7 @@ import {
   DeployGuard 
 } from "../components/TamboComponents";
 import TamboChat from "../components/TamboChat";
+import { useAuth } from "../components/AuthProvider";
 
 /**
  * SafeOps Co-pilot MVP: Main Dashboard
@@ -16,14 +17,23 @@ import TamboChat from "../components/TamboChat";
  */
 
 export default function SafeOpsDashboard() {
+  const { user, login, logout, loading: authLoading } = useAuth();
   const [context, setContext] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [error, setError] = useState(null);
 
-  const fetchContext = async () => {
+  const fetchContext = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/billing/context");
+      const headers = { 'Content-Type': 'application/json' };
+      
+      if (user) {
+        const token = await user.getIdToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch("http://localhost:8080/api/billing/context", { headers });
       if (!response.ok) throw new Error("Failed to reach infrastructure");
       const data = await response.json();
       setContext(data);
@@ -32,19 +42,27 @@ export default function SafeOpsDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchContext();
-    const interval = setInterval(fetchContext, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!authLoading) {
+      fetchContext();
+      const interval = setInterval(fetchContext, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [user, authLoading, fetchContext]);
 
   const handleOnboard = async (provider, creds) => {
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (user) {
+        const token = await user.getIdToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const resp = await fetch("http://localhost:8080/api/onboard/", {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ provider, credentials: creds })
       });
       if (resp.ok) {
@@ -70,10 +88,29 @@ export default function SafeOpsDashboard() {
             <h1 className="font-black text-lg tracking-tighter">SafeOps <span className="text-zinc-400">Co-pilot</span></h1>
           </div>
           <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{user.email}</span>
+                <button 
+                  onClick={logout}
+                  className="px-3 py-1 border border-zinc-200 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-100 transition-all rounded"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={login}
+                className="px-4 py-1.5 bg-foreground text-background text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all rounded"
+              >
+                Login with Google
+              </button>
+            )}
+            
             {!isOnboarded && (
               <button 
                 onClick={() => setShowOnboardModal(true)}
-                className="px-4 py-1.5 bg-foreground text-background text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-all rounded"
+                className="px-4 py-1.5 border-2 border-foreground text-foreground text-xs font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all rounded"
               >
                 Connect Cloud
               </button>
@@ -86,6 +123,11 @@ export default function SafeOpsDashboard() {
 
         {/* Dashboard Content */}
         <div className="flex-1 overflow-y-auto p-12 space-y-12">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500 p-4 rounded text-red-500 text-xs font-bold uppercase tracking-widest">
+              Error // {error}
+            </div>
+          )}
           {/* Top Row: Safety & Status */}
           <div className="grid grid-cols-12 gap-12">
             <div className="col-span-12 lg:col-span-8">

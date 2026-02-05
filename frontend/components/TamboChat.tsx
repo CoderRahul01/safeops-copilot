@@ -10,7 +10,7 @@ interface MessagePart {
   text?: string;
 }
 
-export function TamboChat({ welcomeMessage }: { welcomeMessage?: string }) {
+export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string }) {
   const { currentThread } = useTamboThread();
   const { value, setValue, submit, isPending } = useTamboThreadInput();
   const { isIdle } = useTamboGenerationStage() || { isIdle: true };

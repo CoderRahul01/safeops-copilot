@@ -11,6 +11,11 @@ const initialize = () => {
   try {
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || 
                              path.join(__dirname, 'service-account.json');
+    
+    // Resolve path relative to process.cwd() if it's not absolute
+    const resolvedPath = path.isAbsolute(serviceAccountPath) 
+      ? serviceAccountPath 
+      : path.resolve(process.cwd(), serviceAccountPath);
 
     // In production, Firebase Admin often picks up credentials automatically 
     // from the environment (GCP service account).
@@ -21,7 +26,7 @@ const initialize = () => {
     } else {
       // Use explicit service account file
       admin.initializeApp({
-        credential: admin.credential.cert(require(serviceAccountPath)),
+        credential: admin.credential.cert(require(resolvedPath)),
         projectId: process.env.PROJECT_ID
       });
     }

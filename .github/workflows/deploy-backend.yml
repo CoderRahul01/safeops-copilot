@@ -58,7 +58,7 @@ jobs:
             --region us-central1 \
             --allow-unauthenticated \
             --port 8080 \
-            --cpu 1 \
+            --cpu 0.5 \
             --memory 512Mi \
             --min-instances 0 \
             --max-instances 2
