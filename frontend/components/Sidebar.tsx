@@ -110,6 +110,30 @@ export function Sidebar({ className, activeView, onViewChange }: { className?: s
           )}
         </div>
 
+        {/* Cloud Quest Progress (Gamification) */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 p-4 border-2 border-foreground bg-zinc-50 dark:bg-zinc-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]"
+            >
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest">Zero Waste Quest</span>
+                <span className="text-[10px] font-black text-green-600">Day 7</span>
+              </div>
+              <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                <motion.div 
+                  className="h-full bg-foreground"
+                  initial={{ width: 0 }}
+                  animate={{ width: '70%' }}
+                />
+              </div>
+              <p className="text-[8px] font-bold text-zinc-500 mt-2 uppercase">Reward: 200 Security Points</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Data Stream Miniature Console */}
         <AnimatePresence>
           {isExpanded && (

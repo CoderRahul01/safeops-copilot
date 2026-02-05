@@ -9,7 +9,10 @@ import {
   DeployGuard,
   TroubleshootingWorkflow,
   WorkflowStepper,
-  SafetyAudit
+  SafetyAudit,
+  FreeTierSentinel,
+  CloudAchievement,
+  MainframeReport
 } from "@/components/TamboComponents";
 
 const tamboComponents = [
@@ -79,6 +82,44 @@ const tamboComponents = [
         status: z.enum(['PASS', 'FAIL', 'WARN']).describe("Status of the check"),
         message: z.string().describe("Actionable advice or finding")
       }))
+    })
+  },
+  {
+    name: "FreeTierSentinel",
+    description: "INTERACTIVE FREE-TIER GUARDIAN. Use this for ANY query about costs, free tier limits, or money leaks. Visually identifies paid 'traps' and provides a direct 'Synchronize Tier Downgrade' button to save money immediately.",
+    component: FreeTierSentinel,
+    propsSchema: z.object({
+      data: z.object({
+        score: z.number().describe("Aggregated tier health score (0-100)"),
+        leakage: z.number().describe("Monthly dollar amount being lost to paid-tier traps"),
+        traps: z.array(z.object({
+          resource: z.string().describe("Name of the leaking resource"),
+          cost: z.number().describe("Monthly cost of the trap"),
+          trapType: z.string().describe("Technical reason for the charge (e.g. Idle Elastic IP)")
+        }))
+      }),
+      isLoading: z.boolean()
+    })
+  },
+  {
+    name: "CloudAchievement",
+    description: "GAMIFIED REWARD NOTIFICATION. Use this to reward users for positive actions like fixing a leak, securing a resource, or completing an onboarding step. High-impact visual for retention.",
+    component: CloudAchievement,
+    propsSchema: z.object({
+      title: z.string().describe("Impactful title for the achievement"),
+      points: z.number().describe("Security/Reward points given (e.g. 50, 100)"),
+      description: z.string().describe("Congratulatory message detailing the achievement"),
+      icon: z.string().optional().describe("Emoji or Lucide icon name for the trophy")
+    })
+  },
+  {
+    name: "MainframeReport",
+    description: "MANDATORY NARRATIVE WRAPPER. SYSTEM_RULE: You are FORBIDDEN from using the standard 'text' response part. Every explanation, greeting, or report MUST be wrapped in this component. Use high-impact technical titles.",
+    component: MainframeReport,
+    propsSchema: z.object({
+      title: z.string().describe("Impactful technical title (e.g., 'SECURITY_PROTOCOL_OVERVIEW')"),
+      content: z.string().describe("The narrative content or explanation for the user"),
+      status: z.string().optional().describe("Transmission status (e.g., 'DECRYPTED', 'LIVE_FEED')")
     })
   }
 ];

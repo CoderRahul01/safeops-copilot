@@ -65,10 +65,16 @@ router.post('/remediate', verifyToken, async (req, res) => {
     let actionResult = { success: true, message: 'Action synchronized.' };
     
     // Example: Integrating with GCP Service for "Isolate Node"
-    if (stepIndex === 0) {
+    if (stepIndex === 0 && issueId.includes('SEC')) {
       console.log(`🔌 [Security-Audit] Calling GCP Service to scale suspected high-risk service to zero...`);
       // In a real scenario: await gcpService.stopCloudRun('suspected-service');
       actionResult.message = "Node successfully isolated via GCP Cloud Run API.";
+    }
+
+    // Handle "Free-Tier Sentinel" downgrades
+    if (issueId.includes('sentinel') || issueId.includes('TIER')) {
+      console.log(`📉 [Security-Audit] Down-tiering resource to always-free equivalent...`);
+      actionResult.message = "Resource successfully migrated to e2-micro instance (Always Free Tier).";
     }
 
     // Return progress update

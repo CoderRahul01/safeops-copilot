@@ -119,19 +119,21 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
             className="fixed bottom-12 right-12 w-[450px] h-[650px] bg-background border-4 border-foreground shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] z-50 flex flex-col overflow-hidden"
           >
             {/* HUD Header */}
-            <div className="h-14 bg-foreground text-background flex items-center justify-between px-6 shrink-0">
-              <div className="flex items-center gap-3">
-                <Terminal size={16} className="text-green-500" />
+            <div className="h-14 bg-foreground text-background flex items-center justify-between px-6 shrink-0 relative overflow-hidden">
+              <div className="flex items-center gap-3 z-10">
+                <Terminal size={16} className="text-green-500 animate-pulse" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">AI_CO_PILOT_STREAM</span>
               </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform">
+              <div className="flex items-center gap-4 z-10">
+                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform opacity-40 hover:opacity-100">
                   <ChevronDown size={18} />
                 </button>
-                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform">
+                <button onClick={() => setIsOpen(false)} className="hover:scale-125 transition-transform opacity-40 hover:opacity-100">
                   <X size={18} />
                 </button>
               </div>
+              {/* Animated Scanline Overlay for Header */}
+              <div className="absolute inset-0 bg-white opacity-[0.03] pointer-events-none" />
             </div>
 
             {/* Terminal Thread Content */}
@@ -163,17 +165,19 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
                       </span>
                     </div>
 
-                    <div className={`p-4 border-2 font-mono text-[11px] leading-relaxed max-w-[90%]
-                      ${msg.role === 'user' 
-                        ? 'bg-foreground text-background border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]' 
-                        : 'bg-background text-foreground border-foreground/20'}`}
-                    >
-                      {msg.content?.map((part: MessagePart, i: number) => (
-                        part.type === 'text' && part.text && (
-                          <div key={i}>{part.text}</div>
-                        )
-                      ))}
-                    </div>
+                    {msg.content?.some(p => p.type === 'text') && (
+                      <div className={`p-4 border-2 font-mono text-[11px] leading-relaxed max-w-[90%]
+                        ${msg.role === 'user' 
+                          ? 'bg-foreground text-background border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]' 
+                          : 'hidden'}`}
+                      >
+                        {msg.content?.map((part: MessagePart, i: number) => (
+                          part.type === 'text' && part.text && (
+                            <div key={i}>{part.text}</div>
+                          )
+                        ))}
+                      </div>
+                    )}
 
                     {/* Generative UI Component - Rendered in HUD Style */}
                     {msg.renderedComponent && (
@@ -193,27 +197,31 @@ export default function TamboChat({ welcomeMessage }: { welcomeMessage?: string 
               )}
             </div>
 
-            {/* HUD Input Bar */}
-            <div className="p-4 border-t-4 border-foreground bg-zinc-50 dark:bg-zinc-950">
-              <form onSubmit={handleSubmit} className="flex gap-2">
+            <div className="p-4 border-t-4 border-foreground bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden">
+              <form onSubmit={handleSubmit} className="flex gap-2 relative z-10">
                 <div className="flex-1 relative flex items-center">
                   <span className="absolute left-3 text-zinc-400 font-mono text-xs italic">{`>`}</span>
                   <input
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     placeholder="ENTER_PROTOCOL_COMMAND..."
-                    className="w-full bg-transparent border-2 border-foreground/10 focus:border-foreground pl-8 pr-4 py-2 text-[10px] font-mono outline-none transition-all uppercase"
+                    className="w-full bg-transparent border-2 border-foreground/10 focus:border-foreground pl-8 pr-4 py-2 text-[10px] font-mono outline-none transition-all uppercase placeholder:opacity-30"
                     disabled={isPending}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isPending || !value.trim()}
-                  className="px-4 bg-foreground text-background font-black text-[10px] uppercase tracking-widest hover:invert transition-all flex items-center justify-center"
+                  className="px-4 bg-foreground text-background font-black text-[10px] uppercase tracking-widest hover:invert transition-all flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]"
                 >
                   {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 </button>
               </form>
+              
+              {/* CRT Scanline and Vignette Effects */}
+              <div className="absolute inset-0 pointer-events-none z-0">
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.01),rgba(0,0,255,0.01))] bg-[length:100%_4px,3px_100%] opacity-20 pointer-events-none" />
+              </div>
             </div>
           </motion.div>
         )}

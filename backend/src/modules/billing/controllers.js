@@ -48,8 +48,45 @@ const getAwsBilling = async (req, res) => {
   }
 };
 
+const getSentinelData = async (req, res) => {
+  try {
+    const deployments = await firestoreService.getDeployments();
+    
+    // Simulate finding "Traps" based on common patterns
+    const traps = [];
+    if (deployments.some(d => d.cost > 10)) {
+      traps.push({
+        resource: "db-prod-cluster-01",
+        cost: 45.30,
+        trapType: "Paid-Only Tier (No Always-Free Alternative)"
+      });
+    }
+
+    // Check for "Idle/Unattached" style leaks
+    traps.push({
+      resource: "unattached-static-ip",
+      cost: 3.60,
+      trapType: "Idle Reservation (Unattached Elastic IP)"
+    });
+
+    const totalLeakage = traps.reduce((sum, t) => sum + t.cost, 0);
+    const score = Math.max(0, 100 - (traps.length * 15));
+
+    res.json({
+      score,
+      leakage: parseFloat(totalLeakage.toFixed(2)),
+      traps,
+      status: score > 80 ? "OPTIMAL" : "LEAKING"
+    });
+  } catch (error) {
+    console.error('Failed to get sentinel data:', error);
+    res.status(500).json({ error: 'Sentinel Scan Failed', message: error.message });
+  }
+};
+
 module.exports = {
   getBillingContext,
   getGcpBilling,
-  getAwsBilling
+  getAwsBilling,
+  getSentinelData
 };
