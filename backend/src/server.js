@@ -2,11 +2,15 @@ const app = require('./app');
 const firestoreService = require('./services/firestore.service');
 const gcpService = require('./services/gcp.service');
 require('dotenv').config();
+const firebaseConfig = require('./config/firebase.config');
 
 const port = process.env.PORT || 8080;
 
 async function init() {
   try {
+    // 0. Initialize Firebase (for Auth)
+    firebaseConfig.initialize();
+
     // 1. Initialize Firestore
     await firestoreService.initialize();
     console.log('🔥 Firestore service initialized successfully');

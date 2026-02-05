@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "firebase-admin": "^13.0.0",
     "@aws-sdk/client-cost-explorer": "^3.744.0",
     "@aws-sdk/client-ec2": "^3.744.0",
     "@aws-sdk/client-lambda": "^3.744.0",

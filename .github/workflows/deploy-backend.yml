@@ -25,6 +25,26 @@ jobs:
           gcloud artifacts repositories describe safeops-docker --location=us-central1 --quiet || \
           gcloud artifacts repositories create safeops-docker --repository-format=docker --location=us-central1 --description="Docker repository for SafeOps" --quiet
 
+      - name: Scan for vulnerable dependencies (OSV-scanner)
+        uses: google/osv-scanner-action@v1.9.0
+        with:
+          scan-args: ./backend
+
+      - name: Build Backend (Staging for Scan)
+        working-directory: ./backend
+        run: |
+          docker build -t safeops-backend:test .
+
+      - name: Scan for container vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "safeops-backend:test"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
       - name: Build & Push Backend
         working-directory: ./backend
         run: |
