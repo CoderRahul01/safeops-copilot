@@ -2,11 +2,21 @@ const express = require('express');
 const router = express.Router();
 const memoryService = require('../../services/memory.service');
 const { verifyToken } = require('../../middlewares/auth.middleware');
+const intentController = require('./intent.controller');
 
 /**
- * AI Memory Module
- * Handles storage and retrieval of chat interactions.
+ * AI Memory & Intent Module
+ * Handles storage, retrieval, and structured intent execution.
  */
+
+// Route to process a structured intent
+router.post('/intent', verifyToken, intentController.processIntent);
+
+// Route to get personal intent history
+router.get('/intent/history', verifyToken, intentController.getIntentHistory);
+
+// Route to advance an intent step (The Journey)
+router.post('/intent/advance', verifyToken, intentController.advanceIntent);
 
 // Route to store a user interaction (message + optional response)
 router.post('/store', verifyToken, async (req, res) => {

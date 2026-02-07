@@ -10,4 +10,16 @@ router.post('/gcp/stop-service', verifyToken, controllers.stopGcpService);
 // AWS Routes
 router.get('/aws/services', verifyToken, controllers.listAwsServices);
 
+// Unified Termination Route
+router.post('/terminate', verifyToken, controllers.terminateResource);
+
+// Real-time Cloud Management
+router.post('/update-credentials', verifyToken, controllers.updateCredentials);
+router.get('/logs', verifyToken, controllers.getCloudLogs);
+
+// Secure Federation Routes
+router.post('/connect/aws', verifyToken, controllers.connectAWS);
+router.get('/connect/gcp', verifyToken, controllers.connectGCP);
+router.post('/oauth/callback', verifyToken, controllers.oauthCallback);
+
 module.exports = router;

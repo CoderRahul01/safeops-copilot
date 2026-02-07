@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../components/AuthProvider';
 
 interface CloudContext {
   billingStatus: {
@@ -16,14 +17,20 @@ interface CloudContext {
 }
 
 export function useRealtimeContext() {
+  const { user } = useAuth();
   const [context, setContext] = useState<CloudContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchContext = useCallback(async () => {
+    if (!user) return;
     try {
+      const token = await user.getIdToken();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
       setError(null);
-      const res = await fetch("http://127.0.0.1:8080/api/context");
+      const res = await fetch(`${apiUrl}/api/context`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -36,7 +43,7 @@ export function useRealtimeContext() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Initial load
   useEffect(() => {

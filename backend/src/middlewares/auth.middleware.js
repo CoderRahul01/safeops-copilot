@@ -29,7 +29,8 @@ const verifyToken = async (req, res, next) => {
     // Attempting real verification if service account is available
     if (admin.apps.length > 0) {
       const decodedToken = await admin.auth().verifyIdToken(token);
-      req.user = decodedToken;
+      const orgId = decodedToken.orgId || decodedToken.org_id;
+      req.user = { uid: decodedToken.uid, email: decodedToken.email, orgId: orgId || 'default-org' };
       next();
     } else {
       console.warn('⚠️ Firebase Admin not initialized, skipping auth verification');

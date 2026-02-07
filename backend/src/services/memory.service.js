@@ -15,13 +15,16 @@ class MemoryService {
      */
     async addInteraction(userId, content, metadata = {}) {
         try {
-            const threadId = metadata.threadId || 'default';
-            console.log(`🧠 [MemoryService] Storing memory for User:${userId} Thread:${threadId}`);
+            const threadId = (metadata.threadId || 'default').replace(/[^a-zA-Z0-9-_]/g, '_');
+            const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
+            
+            console.log(`🧠 [MemoryService] Storing memory for User:${sanitizedUserId} (Thread:${threadId})`);
             await this.client.add({
                 content,
-                containerTags: [`user_${userId}`, `thread_${threadId}`],
+                containerTag: sanitizedUserId, // Use singular tag (sanitized)
                 metadata: {
                     ...metadata,
+                    threadId, // Store threadId in metadata for filtering
                     timestamp: new Date().toISOString(),
                     source: 'safeops-copilot'
                 }
@@ -39,13 +42,15 @@ class MemoryService {
      */
     async searchContext(userId, query, threadId = null) {
         try {
-            console.log(`🔍 [MemoryService] Searching memory for context: "${query}" (Thread: ${threadId || 'ALL'})`);
-            const tags = [`user_${userId}`];
-            if (threadId) tags.push(`thread_${threadId}`);
+            const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
+            const sanitizedThreadId = threadId ? String(threadId).replace(/[^a-zA-Z0-9-_]/g, '_') : null;
             
+            console.log(`🔍 [MemoryService] Searching memory for context: "${query}" (User: ${sanitizedUserId})`);
+            
+            // Note: Supermemory v4 search primarily uses one containerTag
             const response = await this.client.search.documents({
                 q: query,
-                containerTags: tags
+                containerTag: sanitizedUserId
             });
             return response.results || [];
         } catch (error) {
@@ -60,7 +65,8 @@ class MemoryService {
      */
     async getUserProfile(userId) {
         try {
-            const profile = await this.client.profile({ containerTag: `user_${userId}` });
+            const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
+            const profile = await this.client.profile({ containerTag: `user_${sanitizedUserId}` });
             return profile;
         } catch (error) {
             console.error('❌ [MemoryService] Error getting profile:', error.message);

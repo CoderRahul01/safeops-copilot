@@ -10,6 +10,7 @@ import {
   TroubleshootingWorkflow,
   SafetyAudit
 } from "../components/TamboComponents";
+import { CloudView } from "../components/CloudView";
 import TamboChat from "../components/TamboChat";
 import { useAuth } from "../components/AuthProvider";
 
@@ -54,7 +55,8 @@ export default function SafeOpsDashboard() {
         const token = await user.getIdToken();
         headers['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetch("http://localhost:8080/api/security-audit/remediate", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const response = await fetch(`${apiUrl}/api/security-audit/remediate`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ issueId: "INCIDENT-882-B", stepIndex })
@@ -158,6 +160,8 @@ export default function SafeOpsDashboard() {
                 </div>
               </div>
             </div>
+          ) : activeView === "Cloud" ? (
+            <CloudView />
           ) : (
             <div className="flex flex-col items-center justify-center h-[50vh] border border-foreground/10 border-dashed">
               <h2 className="text-6xl font-black uppercase tracking-tight italic opacity-20">{activeView}</h2>

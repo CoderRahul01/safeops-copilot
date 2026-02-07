@@ -11,6 +11,7 @@ import {
   WorkflowStepper,
   SafetyAudit,
   FreeTierSentinel,
+  CloudConnectivityStatus,
   CloudAchievement,
   MainframeReport
 } from "@/components/TamboComponents";
@@ -55,7 +56,22 @@ const tamboComponents = [
     component: TroubleshootingWorkflow,
     propsSchema: z.object({
       issueId: z.string().describe("UUID for the issue"),
-      steps: z.array(z.object({ completed: z.boolean(), label: z.string(), description: z.string() }))
+      steps: z.array(z.object({ completed: z.boolean(), label: z.string(), description: z.string() })),
+      onSync: z.function().args(z.number()).returns(z.void()).optional()
+    })
+  },
+  {
+    name: "CloudConnectivityStatus",
+    description: "MULTI-CLOUD LINK MONITOR. Use this to show active AWS/GCP connection health, latency, and live handshake logs. MANDATORY for connectivity reports.",
+    component: CloudConnectivityStatus,
+    propsSchema: z.object({
+      provider: z.string().describe("Cloud provider name (AWS/GCP)"),
+      status: z.enum(['ACTIVE', 'INACTIVE']).describe("Connection state"),
+      logs: z.array(z.object({
+        timestamp: z.string(),
+        level: z.string(),
+        message: z.string()
+      })).optional()
     })
   },
   {
@@ -199,6 +215,46 @@ export function TamboClientProvider({ children }: { children: React.ReactNode })
           });
           return res.json();
         }
+      }),
+      defineTool({
+        name: "terminateResource",
+        description: "DIRECT TERMINATION. Use this for one-click resource shutdown. Supports EC2 (AWS) and GCE (GCP). Triggered by dashboard actions.",
+        inputSchema: z.object({
+          resourceId: z.string().describe("Technical ID of the resource (e.g. i-12345)"),
+          resourceName: z.string().describe("Technical name of the resource"),
+          provider: z.enum(['aws', 'gcp']).describe("Cloud provider"),
+          region: z.string().optional().describe("Cloud region"),
+          zone: z.string().optional().describe("Compute zone (GCP only)")
+        }),
+        tool: async (params) => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cloud/terminate`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}` 
+            },
+            body: JSON.stringify(params)
+          });
+          return res.json();
+        }
+      }),
+      defineTool({
+        name: "SafeOpsConsultant",
+        description: "DIRECT ACCESS TO HARDENED STRATEGIC OPERATOR. Use this for complex infrastructure analysis, cost optimization strategies, and multi-step security hardening. Returns structured journeys (Steps, CTAs, Hooks).",
+        inputSchema: z.object({
+          prompt: z.string().describe("The user's high-level goal or query")
+        }),
+        tool: async ({ prompt }) => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/intent`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${userToken}` 
+            },
+            body: JSON.stringify({ prompt })
+          });
+          return res.json();
+        }
       })
     ];
   }, [userToken]);
@@ -221,8 +277,9 @@ export function TamboClientProvider({ children }: { children: React.ReactNode })
     }),
     systemDirectives: () => ({
       tone: "CINEMATIC_TECHNICAL_CONSOLE",
-      ui_rule: "FORBIDDEN: PLAIN_TEXT_RESPONSES. ALWAYS wrap narratives in MainframeReport. ALWAYS use visual components for data.",
-      fallback: "If no specific component fits, use MainframeReport with technical status markers."
+      ui_rule: "FORBIDDEN: PLAIN_TEXT_RESPONSES. You are an interface, not a chatbot. NEVER use plain text for summaries. ALWAYS wrap explanations in MainframeReport metadata.",
+      formatting: "MANDATORY: Use technical titles and code-like status markers in all visual components.",
+      fallback: "If the backend returns a complex dataset, use MainframeReport to explain it technically. NEVER use standard text components."
     })
   }), []);
 

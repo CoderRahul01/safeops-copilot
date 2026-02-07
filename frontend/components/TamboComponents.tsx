@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Terminal, ShieldAlert, Zap } from "lucide-react";
+import { Terminal, ShieldAlert, Zap, Cloud } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useTamboStreamStatus, TamboMessageProvider, useTamboCurrentComponent, type TamboThreadMessage } from "@tambo-ai/react";
+import { useAuth } from "./AuthProvider";
 
 // Types for components
 interface SafetyCardProps {
@@ -18,7 +19,13 @@ interface StatusMeterProps {
 
 interface SafetyAuditProps {
   score?: number;
-  checks?: Array<{ category: string; status: 'PASS' | 'FAIL' | 'WARN'; message: string }>;
+  checks?: Array<{ category: string, status: string, message: string }>;
+}
+
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
 }
 
 interface FreeTierSentinelProps {
@@ -182,16 +189,74 @@ function StatusMeterInternal({ metrics }: StatusMeterProps) {
 export const StatusMeter = withClientOnly(StatusMeterInternal);
 
 // 3. Resource List: Clean Data Table
+// 3. Resource List: Clean Data Table
 function ResourceListInternal() {
+  const { user } = useAuth();
   const { streamStatus } = useTamboStreamStatus();
-  const [resources, setResources] = useState<Array<{ name: string, status: string }>>([]);
+  // Update state to include id and cloud
+  const [resources, setResources] = useState<Array<{ id?: string, name: string, status: string, cloud?: string, region?: string }>>([]);
+  const [terminatingId, setTerminatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/inventory/resources")
-      .then(res => res.json())
-      .then(data => setResources(data))
-      .catch(err => console.error(err));
-  }, []);
+    if (!user) return;
+
+    const fetchResources = async () => {
+      try {
+        const token = await user.getIdToken();
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/api/inventory/resources`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setResources(data);
+        } else {
+          console.error("Inventory API did not return an array:", data);
+          setResources([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch inventory:", err);
+        setResources([]);
+      }
+    };
+
+    fetchResources();
+  }, [user]);
+
+  const handleTerminate = async (r: { id?: string, name: string, cloud?: string, region?: string }) => {
+    const confirm = window.confirm(`CRITICAL: Initiate termination sequence for ${r.name}?`);
+    if (!confirm) return;
+
+    setTerminatingId(r.id || r.name);
+    try {
+      const token = await user?.getIdToken();
+      if (!token) throw new Error("No auth token available");
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/api/cloud/terminate`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          resourceId: r.id,
+          resourceName: r.name,
+          provider: r.cloud || 'gcp',
+          region: r.region || 'us-central1'
+        })
+      });
+      const result = await res.json();
+      if (result.success) {
+        // Optimistic UI update or just refresh
+        setResources(prev => prev.map(item => (item.id === r.id || item.name === r.name) ? { ...item, status: 'STOPPING' } : item));
+      }
+    } catch (err) {
+      console.error("Termination failed:", err);
+    } finally {
+      setTerminatingId(null);
+    }
+  };
 
   if (streamStatus.isPending) {
     return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
@@ -216,25 +281,37 @@ function ResourceListInternal() {
               <th className="px-8 py-4">Resource Identifier</th>
               <th className="px-8 py-4 text-center">Status</th>
               <th className="px-8 py-4 text-right">Unit Cost</th>
+              <th className="px-8 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-50 dark:divide-zinc-950">
-            {resources.slice(0, 6).map((r, i) => (
+            {Array.isArray(resources) && resources.slice(0, 6).map((r, i) => (
               <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
                 <td className="px-8 py-5">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold">{r.name}</span>
-                    <span className="text-[10px] text-zinc-400">Standard Cluster</span>
+                    <span className="text-[10px] text-zinc-400 uppercase">
+                      {r.cloud || 'GCP'} — Standard Cluster
+                    </span>
                   </div>
                 </td>
                 <td className="px-8 py-5 text-center">
                   <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    r.status === 'RUNNING' ? 'bg-foreground text-background' : 'text-zinc-400 border border-zinc-200 dark:border-zinc-800'
+                    r.status === 'RUNNING' || r.status === 'running' ? 'bg-foreground text-background' : 'text-zinc-400 border border-zinc-200 dark:border-zinc-800'
                   }`}>
-                    {r.status === 'RUNNING' ? 'LIVE' : 'IDLE'}
+                    {r.status === 'RUNNING' || r.status === 'running' ? 'LIVE' : r.status.toUpperCase()}
                   </span>
                 </td>
                 <td className="px-8 py-5 text-right font-mono text-sm">$2.15</td>
+                <td className="px-8 py-5 text-right">
+                  <button 
+                    onClick={() => handleTerminate(r)}
+                    disabled={terminatingId === (r.id || r.name)}
+                    className="text-[10px] font-bold uppercase text-red-600 hover:text-red-700 underline tracking-tighter disabled:opacity-30"
+                  >
+                    {terminatingId === (r.id || r.name) ? 'WAIT...' : 'TERMINATE'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -291,7 +368,7 @@ function TroubleshootingWorkflowInternal({ steps, issueId, onSync }: Troubleshoo
   }
 
   const handleSync = async () => {
-    if (!onSync || !steps) return;
+    if (!onSync || !Array.isArray(steps)) return;
     const nextStepIdx = steps.findIndex(s => !s.completed);
     if (nextStepIdx === -1) return;
     setIsSyncing(true);
@@ -547,9 +624,9 @@ function WorkflowStepperInternal({ id, title, steps }: WorkflowStepperProps) {
           Previous
         </button>
         <button 
-          onClick={() => setActiveStep(prev => Math.min((steps?.length || 1) - 1, prev + 1))}
+          onClick={() => setActiveStep(prev => Math.min((Array.isArray(steps) ? steps.length : 1) - 1, prev + 1))}
           className="px-6 py-2 bg-foreground text-background text-[10px] font-bold uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-20"
-          disabled={activeStep === (steps?.length || 1) - 1}
+          disabled={activeStep === ((Array.isArray(steps) ? steps.length : 1) - 1)}
         >
           Next Step
         </button>
@@ -622,3 +699,56 @@ function FreeTierSentinelInternal({ data }: FreeTierSentinelProps) {
   );
 }
 export const FreeTierSentinel = withClientOnly(FreeTierSentinelInternal);
+// 6. Cloud Connectivity: Visual Link Report
+export function CloudConnectivityStatus({ provider, status, logs = [] }: { provider: string, status: string, logs?: LogEntry[] }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="border border-foreground bg-background p-8 space-y-6"
+    >
+      <div className="flex items-center justify-between border-b border-foreground/10 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-foreground text-background">
+            <Cloud size={18} />
+          </div>
+          <h3 className="text-sm font-black uppercase tracking-tight italic">{provider} Connectivity Link</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${status === 'ACTIVE' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-[10px] font-bold uppercase">{status}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-foreground/5 space-y-1">
+          <span className="text-[9px] font-bold uppercase text-zinc-400">Handshake Status</span>
+          <p className="text-xs font-mono font-bold uppercase">{status === 'ACTIVE' ? 'Verified (TLS 1.3)' : 'Failed'}</p>
+        </div>
+        <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-foreground/5 space-y-1">
+          <span className="text-[9px] font-bold uppercase text-zinc-400">Latency</span>
+          <p className="text-xs font-mono font-bold uppercase">42ms</p>
+        </div>
+      </div>
+
+      <div className="bg-zinc-950 p-4 rounded-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <Terminal size={12} className="text-zinc-500" />
+          <span className="text-[9px] font-bold uppercase text-zinc-500">Live Connection Stream</span>
+        </div>
+        <div className="space-y-1">
+          {logs.slice(0, 3).map((log, i) => (
+            <div key={i} className="text-[10px] font-mono flex gap-3 text-zinc-300">
+              <span className="opacity-30">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
+              <span className="uppercase text-zinc-500">{log.level}:</span>
+              <span>{log.message}</span>
+            </div>
+          ))}
+          {!logs.length && (
+            <div className="text-[10px] font-mono text-zinc-600 italic">Listening for handshake telemetry...</div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
