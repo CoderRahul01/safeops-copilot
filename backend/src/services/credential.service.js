@@ -40,40 +40,52 @@ class CredentialService {
   decrypt(encryptedText) {
     if (!encryptedText) return null;
     
-    const [ivHex, tagHex, contentHex] = encryptedText.split(':');
-    if (!ivHex || !tagHex || !contentHex) return null;
-    
-    const iv = Buffer.from(ivHex, 'hex');
-    const tag = Buffer.from(tagHex, 'hex');
-    const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
-    
-    decipher.setAuthTag(tag);
-    
-    return decrypted;
+    try {
+      const [ivHex, tagHex, contentHex] = encryptedText.split(':');
+      if (!ivHex || !tagHex || !contentHex) return null;
+      
+      const iv = Buffer.from(ivHex, 'hex');
+      const tag = Buffer.from(tagHex, 'hex');
+      const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
+      
+      decipher.setAuthTag(tag);
+      
+      let decrypted = decipher.update(contentHex, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } catch (error) {
+      console.error('Decryption failed:', error);
+      return null;
+    }
   }
 
   /**
    * Store a cloud connection for a user
    * @param {string} userId - The user's UID
    * @param {string} provider - 'aws' or 'gcp'
-   * @param {object} tokens - { accessToken, refreshToken, expiry }
+   * @param {object} credentials - The credential object (JSON or Keys)
    */
-  async storeConnection(userId, provider, tokens) {
+  async storeConnection(userId, provider, credentials) {
     const admin = require('firebase-admin');
     const db = admin.firestore();
     
-    const encryptedRefreshToken = this.encrypt(tokens.refreshToken);
+    // Encrypt the entire credentials object as a string for maximum security
+    const encryptedData = this.encrypt(JSON.stringify(credentials));
     
-    await db.collection('connections').doc(`${userId}_${provider}`).set({
-      userId,
-      provider,
-      accessToken: tokens.accessToken, // Short-lived, encryption optional but recommended
-      refreshToken: encryptedRefreshToken,
-      expiry: tokens.expiry,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    
-    return true;
+    try {
+      await db.collection('connections').doc(`${userId}_${provider}`).set({
+        userId,
+        provider,
+        encryptedData,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      console.log(`✅ [CredentialService] Stored ${provider} credentials for user ${userId}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ [CredentialService] Failed to store ${provider} credentials:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -89,7 +101,10 @@ class CredentialService {
     if (!doc.exists) return null;
     
     const data = doc.data();
-    data.refreshToken = this.decrypt(data.refreshToken);
+    if (data.encryptedData) {
+      const decrypted = this.decrypt(data.encryptedData);
+      return JSON.parse(decrypted);
+    }
     
     return data;
   }

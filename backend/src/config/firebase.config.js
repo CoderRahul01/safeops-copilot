@@ -17,19 +17,25 @@ const initialize = () => {
       ? serviceAccountPath 
       : path.resolve(process.cwd(), serviceAccountPath);
 
-    // In production, Firebase Admin often picks up credentials automatically 
-    // from the environment (GCP service account).
-    if (process.env.NODE_ENV === 'production' && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      admin.initializeApp({
-        projectId: process.env.PROJECT_ID
-      });
-    } else {
-      // Use explicit service account file
+    console.log(`🔧 [Firebase] Attempting initialization with path: ${resolvedPath}`);
+
+    // Always try to use the service account file if it exists
+    const fs = require('fs');
+    if (fs.existsSync(resolvedPath)) {
       admin.initializeApp({
         credential: admin.credential.cert(require(resolvedPath)),
-        projectId: process.env.PROJECT_ID
+        projectId: process.env.PROJECT_ID || 'arcane-dolphin-484007-f8'
       });
+      console.log('🛡️  Firebase Admin initialized with service account file');
+    } else {
+      // Fallback to ADC if no file found (e.g. on Cloud Run)
+      admin.initializeApp({
+        projectId: process.env.PROJECT_ID || 'arcane-dolphin-484007-f8'
+      });
+      console.log('🛡️  Firebase Admin initialized with Application Default Credentials');
     }
+
+    return admin;
 
     console.log('🛡️  Firebase Admin initialized successfully');
     return admin;

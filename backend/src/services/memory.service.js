@@ -18,13 +18,18 @@ class MemoryService {
             const threadId = (metadata.threadId || 'default').replace(/[^a-zA-Z0-9-_]/g, '_');
             const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
             
+            if (!content || String(content).trim().length < 2) {
+                console.warn(`⚠️ [MemoryService] Skipping storage: Content too short for User:${sanitizedUserId}`);
+                return;
+            }
+
             console.log(`🧠 [MemoryService] Storing memory for User:${sanitizedUserId} (Thread:${threadId})`);
             await this.client.add({
-                content,
-                containerTag: sanitizedUserId, // Use singular tag (sanitized)
+                content: String(content),
+                containerTag: sanitizedUserId,
                 metadata: {
                     ...metadata,
-                    threadId, // Store threadId in metadata for filtering
+                    threadId,
                     timestamp: new Date().toISOString(),
                     source: 'safeops-copilot'
                 }

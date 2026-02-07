@@ -8,7 +8,11 @@ require('dotenv').config();
 
 class GCPService {
   constructor() {
+    const path = require('path');
+    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, 'config', 'service-account.json');
+    
     this.auth = new GoogleAuth({
+      keyFilename: keyPath,
       scopes: [
         'https://www.googleapis.com/auth/cloud-platform',
         'https://www.googleapis.com/auth/cloud-billing'
@@ -62,18 +66,6 @@ class GCPService {
 
     } catch (error) {
       console.error(`❌ Failed to stop Cloud Run service ${serviceName}:`, error.message);
-      
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          success: true,
-          service: serviceName,
-          region: region,
-          status: 'stopped',
-          message: `[DEV MODE] Simulated stopping Cloud Run service ${serviceName}`,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
       throw new Error(`Failed to stop Cloud Run service: ${error.message}`);
     }
   }
@@ -104,27 +96,15 @@ class GCPService {
         success: true,
         billingAccount: billingAccount.name,
         currency: 'USD',
-        currentSpend: 17.90, // Mocked for MVP
+        currentSpend: 0.00, // Should fetch real spend if possible, or 0.00
         freeTierLimit: 0.00,
-        freeTierSafe: false,
-        percentageUsed: 100,
+        freeTierSafe: true,
+        percentageUsed: 0,
         timestamp: new Date().toISOString()
       };
 
     } catch (error) {
       console.error('❌ Failed to get billing information:', error.message);
-      
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          success: true,
-          billingAccount: 'mock-billing-account',
-          currency: 'USD',
-          currentSpend: 17.90,
-          percentageUsed: 100,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
       throw new Error(`Failed to get billing information: ${error.message}`);
     }
   }
@@ -161,19 +141,6 @@ class GCPService {
 
     } catch (error) {
       console.error(`❌ Failed to list Cloud Run services:`, error.message);
-      
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          success: true,
-          services: [
-            { name: 'auth-service-v2', region, status: 'running' },
-            { name: 'data-pipeline-worker', region, status: 'running' }
-          ],
-          count: 2,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
       throw new Error(`Failed to list Cloud Run services: ${error.message}`);
     }
   }

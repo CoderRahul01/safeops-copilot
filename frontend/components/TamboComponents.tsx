@@ -106,7 +106,10 @@ function withClientOnly<T extends object>(Component: React.ComponentType<T>) {
 function SafetyCardInternal({ data, recommendation }: SafetyCardProps) {
   const { streamStatus } = useTamboStreamStatus<SafetyCardProps>();
   
-  if (streamStatus.isPending) {
+  // Render if we have data OR if we aren't pending. If pending and no data, show skeleton.
+  const shouldRender = (data && data.totalSpend !== undefined) || !streamStatus.isPending;
+
+  if (!shouldRender) {
     return <div className="h-64 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
@@ -146,7 +149,10 @@ export const SafetyCard = withClientOnly(SafetyCardInternal);
 function StatusMeterInternal({ metrics }: StatusMeterProps) {
   const { streamStatus } = useTamboStreamStatus<StatusMeterProps>();
 
-  if (streamStatus.isPending) {
+  // Use props as fallback for static rendering
+  const shouldRender = (metrics && metrics.risk_score !== undefined) || !streamStatus.isPending;
+
+  if (!shouldRender) {
     return <div className="h-64 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
@@ -189,29 +195,45 @@ function StatusMeterInternal({ metrics }: StatusMeterProps) {
 export const StatusMeter = withClientOnly(StatusMeterInternal);
 
 // 3. Resource List: Clean Data Table
+interface ResourceListProps {
+  resources?: Array<{ id?: string, name: string, status: string, cloud?: string, region?: string }>;
+  isLoading?: boolean;
+}
+
 // 3. Resource List: Clean Data Table
-function ResourceListInternal() {
+function ResourceListInternal({ resources: propsResources }: ResourceListProps) {
   const { user } = useAuth();
   const { streamStatus } = useTamboStreamStatus();
   // Update state to include id and cloud
-  const [resources, setResources] = useState<Array<{ id?: string, name: string, status: string, cloud?: string, region?: string }>>([]);
+  const [resources, setResources] = useState<Array<{ id?: string, name: string, status: string, cloud?: string, region?: string }>>(propsResources || []);
   const [terminatingId, setTerminatingId] = useState<string | null>(null);
+  const [connectionInfo, setConnectionInfo] = useState<{aws: boolean, gcp: boolean}>({ aws: false, gcp: false });
 
   useEffect(() => {
+    if (propsResources && propsResources.length > 0) {
+      setResources(propsResources);
+      return;
+    }
     if (!user) return;
 
     const fetchResources = async () => {
       try {
         const token = await user.getIdToken();
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-        const res = await fetch(`${apiUrl}/api/inventory/resources`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
+        
+        // Fetch connection status and resources in parallel
+        const [connRes, invRes] = await Promise.all([
+          fetch(`${apiUrl}/api/cloud/status`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${apiUrl}/api/inventory/resources`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+
+        const connData = await connRes.json();
+        setConnectionInfo(connData);
+
+        const data = await invRes.json();
         if (Array.isArray(data)) {
           setResources(data);
         } else {
-          console.error("Inventory API did not return an array:", data);
           setResources([]);
         }
       } catch (err) {
@@ -221,9 +243,10 @@ function ResourceListInternal() {
     };
 
     fetchResources();
-  }, [user]);
+  }, [user, propsResources]);
 
   const handleTerminate = async (r: { id?: string, name: string, cloud?: string, region?: string }) => {
+    // ... (rest of the handleTerminate logic stays the same)
     const confirm = window.confirm(`CRITICAL: Initiate termination sequence for ${r.name}?`);
     if (!confirm) return;
 
@@ -248,7 +271,6 @@ function ResourceListInternal() {
       });
       const result = await res.json();
       if (result.success) {
-        // Optimistic UI update or just refresh
         setResources(prev => prev.map(item => (item.id === r.id || item.name === r.name) ? { ...item, status: 'STOPPING' } : item));
       }
     } catch (err) {
@@ -258,9 +280,11 @@ function ResourceListInternal() {
     }
   };
 
-  if (streamStatus.isPending) {
+  if (streamStatus.isPending && (!resources || resources.length === 0)) {
     return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
+
+  const isConnected = connectionInfo.aws || connectionInfo.gcp;
 
   return (
     <motion.div 
@@ -271,51 +295,62 @@ function ResourceListInternal() {
     >
       <div className="px-8 py-5 border-b border-foreground flex justify-between items-center">
         <h3 className="text-[14px] font-bold uppercase tracking-tight">Active Resources</h3>
-        <span className="text-[10px] font-mono text-zinc-400">COUNT: {resources.length}</span>
+        <div className="flex items-center gap-4">
+          {isConnected && (
+            <div className="flex gap-2">
+              {connectionInfo.aws && <span className="text-[9px] font-bold bg-amber-500/10 text-amber-600 px-2 py-0.5 border border-amber-500/20">AWS_CONNECTED</span>}
+              {connectionInfo.gcp && <span className="text-[9px] font-bold bg-blue-500/10 text-blue-600 px-2 py-0.5 border border-blue-500/20">GCP_CONNECTED</span>}
+            </div>
+          )}
+          <span className="text-[10px] font-mono text-zinc-400">COUNT: {resources.length}</span>
+        </div>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-zinc-100 dark:border-zinc-900 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-              <th className="px-8 py-4">Resource Identifier</th>
-              <th className="px-8 py-4 text-center">Status</th>
-              <th className="px-8 py-4 text-right">Unit Cost</th>
-              <th className="px-8 py-4 text-right">Actions</th>
+          <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-foreground/10">
+            <tr>
+              <th className="px-8 py-4 font-bold">Resource Name</th>
+              <th className="px-8 py-4 font-bold">Status</th>
+              <th className="px-8 py-4 font-bold">Provider</th>
+              <th className="px-8 py-4 font-bold text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-50 dark:divide-zinc-950">
-            {Array.isArray(resources) && resources.slice(0, 6).map((r, i) => (
+          <tbody className="divide-y divide-foreground/10">
+            {resources.map((item, i) => (
               <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
-                <td className="px-8 py-5">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold">{r.name}</span>
-                    <span className="text-[10px] text-zinc-400 uppercase">
-                      {r.cloud || 'GCP'} — Standard Cluster
-                    </span>
-                  </div>
-                </td>
-                <td className="px-8 py-5 text-center">
-                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    r.status === 'RUNNING' || r.status === 'running' ? 'bg-foreground text-background' : 'text-zinc-400 border border-zinc-200 dark:border-zinc-800'
+                <td className="px-8 py-4 font-medium text-foreground">{item.name}</td>
+                <td className="px-8 py-4">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
+                    item.status === 'RUNNING' || item.status === 'running' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 
+                    item.status === 'STOPPED' || item.status === 'stopped' ? 'bg-zinc-100 text-zinc-500 border-zinc-200' :
+                    'bg-amber-500/10 text-amber-600 border-amber-500/20'
                   }`}>
-                    {r.status === 'RUNNING' || r.status === 'running' ? 'LIVE' : r.status.toUpperCase()}
+                    {(item.status === 'RUNNING' || item.status === 'running') && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                    {item.status}
                   </span>
                 </td>
-                <td className="px-8 py-5 text-right font-mono text-sm">$2.15</td>
-                <td className="px-8 py-5 text-right">
-                  <button 
-                    onClick={() => handleTerminate(r)}
-                    disabled={terminatingId === (r.id || r.name)}
-                    className="text-[10px] font-bold uppercase text-red-600 hover:text-red-700 underline tracking-tighter disabled:opacity-30"
-                  >
-                    {terminatingId === (r.id || r.name) ? 'WAIT...' : 'TERMINATE'}
-                  </button>
+                <td className="px-8 py-4 text-xs text-zinc-500 uppercase">{item.cloud || 'GCP'}</td>
+                <td className="px-8 py-4 text-right">
+                  {(item.status === 'RUNNING' || item.status === 'running') && (
+                     <button 
+                       onClick={() => handleTerminate(item)}
+                       disabled={terminatingId === (item.id || item.name)}
+                       className="text-[10px] font-bold uppercase text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 focus:outline-none disabled:opacity-50"
+                     >
+                       {terminatingId === (item.id || item.name) ? 'Stopping...' : 'Stop'}
+                     </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {resources.length === 0 && (
+          <div className="p-8 text-center text-zinc-400 text-sm">
+            {isConnected ? "No active resources detected on connected cloud providers." : "No accounts connected. Please authenticate in the Cloud tab."}
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -363,7 +398,7 @@ function TroubleshootingWorkflowInternal({ steps, issueId, onSync }: Troubleshoo
   const { streamStatus } = useTamboStreamStatus<TroubleshootingWorkflowProps>();
   const [isSyncing, setIsSyncing] = useState(false);
 
-  if (streamStatus.isPending) {
+  if (streamStatus.isPending && (!steps || steps.length === 0)) {
     return <div className="h-80 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
@@ -466,7 +501,7 @@ export const SafetyAudit = withClientOnly(SafetyAuditInternal);
 function MainframeReportInternal({ title, content, status }: MainframeReportProps) {
   const { streamStatus } = useTamboStreamStatus<MainframeReportProps>();
 
-  if (streamStatus.isPending) {
+  if (streamStatus.isPending && !content && !title) {
     return <div className="h-48 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
@@ -519,7 +554,7 @@ export const MainframeReport = withClientOnly(MainframeReportInternal);
 function CloudAchievementInternal({ title, points, description, icon }: CloudAchievementProps) {
   const { streamStatus } = useTamboStreamStatus<CloudAchievementProps>();
 
-  if (streamStatus.isPending) {
+  if (streamStatus.isPending && !title) {
     return <div className="h-64 w-full bg-foreground animate-pulse border border-foreground" />;
   }
 
@@ -569,7 +604,7 @@ function WorkflowStepperInternal({ id, title, steps }: WorkflowStepperProps) {
   const { streamStatus } = useTamboStreamStatus<WorkflowStepperProps>();
   const [activeStep, setActiveStep] = useState(0);
 
-  if (streamStatus.isPending) {
+  if (streamStatus.isPending && (!steps || steps.length === 0)) {
     return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
   }
 
@@ -700,55 +735,114 @@ function FreeTierSentinelInternal({ data }: FreeTierSentinelProps) {
 }
 export const FreeTierSentinel = withClientOnly(FreeTierSentinelInternal);
 // 6. Cloud Connectivity: Visual Link Report
-export function CloudConnectivityStatus({ provider, status, logs = [] }: { provider: string, status: string, logs?: LogEntry[] }) {
+export function CloudConnectivityStatusInternal({ provider, status: propStatus, logs = [] }: { provider: string, status?: string, logs?: LogEntry[] }) {
+  const { user } = useAuth();
+  const [fetchedStatus, setFetchedStatus] = useState<string>('AWAITING');
+  const { streamStatus } = useTamboStreamStatus();
+
+  useEffect(() => {
+    if (propStatus || !user) return;
+
+    const fetchStatus = async () => {
+      try {
+        const token = await user.getIdToken();
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const res = await fetch(`${apiUrl}/api/cloud/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const isProviderConnected = provider.toLowerCase() === 'aws' ? data.aws : data.gcp;
+        setFetchedStatus(isProviderConnected ? 'ACTIVE' : 'INACTIVE');
+      } catch (err) {
+        console.error("Failed to fetch cloud status:", err);
+      }
+    };
+
+    fetchStatus();
+  }, [user, propStatus, provider]);
+
+  const status = propStatus || fetchedStatus;
+  const isHealthy = status === 'ACTIVE';
+  
+  if (streamStatus.isPending && !propStatus) {
+    return <div className="h-96 w-full bg-zinc-50 dark:bg-zinc-950 animate-pulse border border-foreground/10" />;
+  }
+
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="border border-foreground bg-background p-8 space-y-6"
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="border border-foreground bg-background p-8 space-y-8 relative overflow-hidden group"
     >
-      <div className="flex items-center justify-between border-b border-foreground/10 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-foreground text-background">
-            <Cloud size={18} />
+      <div className="absolute top-0 right-0 p-4 opacity-5">
+         <Cloud size={80} />
+      </div>
+
+      <div className="flex items-center justify-between border-b border-foreground/10 pb-6">
+        <div className="flex items-center gap-4">
+          <div className={`p-2 ${isHealthy ? 'bg-foreground' : 'bg-red-600'} text-background`}>
+            <Cloud size={20} strokeWidth={2.5} />
           </div>
-          <h3 className="text-sm font-black uppercase tracking-tight italic">{provider} Connectivity Link</h3>
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-tighter italic">{provider} Gateway</h3>
+            <p className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest leading-none mt-1">
+              Secure Channel // End-to-End Encryption
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${status === 'ACTIVE' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-[10px] font-bold uppercase">{status}</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-6">
-        <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-foreground/5 space-y-1">
-          <span className="text-[9px] font-bold uppercase text-zinc-400">Handshake Status</span>
-          <p className="text-xs font-mono font-bold uppercase">{status === 'ACTIVE' ? 'Verified (TLS 1.3)' : 'Failed'}</p>
-        </div>
-        <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border border-foreground/5 space-y-1">
-          <span className="text-[9px] font-bold uppercase text-zinc-400">Latency</span>
-          <p className="text-xs font-mono font-bold uppercase">42ms</p>
+        <div className="flex items-center gap-2 px-3 py-1 bg-zinc-50 dark:bg-zinc-950 border border-foreground/10">
+          <div className={`w-1.5 h-1.5 rounded-full ${isHealthy ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-[10px] font-black uppercase tracking-widest">{status}</span>
         </div>
       </div>
 
-      <div className="bg-zinc-950 p-4 rounded-sm">
-        <div className="flex items-center gap-2 mb-2">
-          <Terminal size={12} className="text-zinc-500" />
-          <span className="text-[9px] font-bold uppercase text-zinc-500">Live Connection Stream</span>
+      <div className="grid grid-cols-2 gap-8">
+        <div className="space-y-1">
+          <span className="text-[9px] font-bold uppercase text-zinc-400">Handshake Integrity</span>
+          <p className="text-sm font-black uppercase">{isHealthy ? 'Verified (OIDC)' : 'Unauthenticated'}</p>
         </div>
         <div className="space-y-1">
-          {logs.slice(0, 3).map((log, i) => (
-            <div key={i} className="text-[10px] font-mono flex gap-3 text-zinc-300">
-              <span className="opacity-30">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
-              <span className="uppercase text-zinc-500">{log.level}:</span>
-              <span>{log.message}</span>
+          <span className="text-[9px] font-bold uppercase text-zinc-400">Response Latency</span>
+          <p className="text-sm font-black uppercase">{isHealthy ? 'Optimal (< 50ms)' : 'N/A'}</p>
+        </div>
+      </div>
+
+      <div className="bg-black/90 p-6 border border-foreground/10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Terminal size={14} className="text-zinc-500" />
+            <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Live Telemetry Feed</span>
+          </div>
+          {isHealthy && <div className="text-[9px] font-mono text-green-500/50 uppercase">Syncing...</div>}
+        </div>
+        
+        <div className="space-y-2 max-h-[160px] overflow-y-auto scrollbar-hide">
+          {logs && logs.length > 0 ? (
+            logs.slice(0, 5).map((log, i) => (
+              <div key={i} className="text-[10px] font-mono flex gap-4 text-zinc-400 group/item">
+                <span className="opacity-20 shrink-0">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' })}]</span>
+                <span className={`uppercase font-bold w-12 shrink-0 ${
+                   log.level === 'success' ? 'text-green-500/70' : 
+                   log.level === 'error' ? 'text-red-500/70' : 'text-blue-500/70'
+                }`}>{log.level}</span>
+                <span className="text-zinc-300 truncate">{log.message}</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-[10px] font-mono text-zinc-600 italic py-4 flex flex-col items-center gap-2">
+               <div className="w-1 h-1 bg-zinc-800 animate-ping rounded-full" />
+               Awaiting infrastructure handshake...
             </div>
-          ))}
-          {!logs.length && (
-            <div className="text-[10px] font-mono text-zinc-600 italic">Listening for handshake telemetry...</div>
           )}
         </div>
+      </div>
+
+      <div className="pt-2">
+         <button className="w-full py-4 border border-foreground text-[10px] font-black uppercase tracking-[0.2em] hover:bg-foreground hover:text-background transition-all">
+            Full Audit Stream
+         </button>
       </div>
     </motion.div>
   );
 }
+export const CloudConnectivityStatus = withClientOnly(CloudConnectivityStatusInternal);

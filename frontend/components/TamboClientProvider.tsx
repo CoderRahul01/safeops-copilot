@@ -41,7 +41,14 @@ const tamboComponents = [
     description: "CINEMATIC INVENTORY TABLE. Use this to list specific resources (nodes, instances, buckets). Shows regions, operational status, and trend data.",
     component: ResourceList,
     propsSchema: z.object({
-      isLoading: z.boolean()
+      resources: z.array(z.object({
+        id: z.string().optional(),
+        name: z.string(),
+        status: z.string(),
+        cloud: z.string().optional(),
+        region: z.string().optional()
+      })).optional(),
+      isLoading: z.boolean().optional()
     })
   },
   {
@@ -234,6 +241,17 @@ export function TamboClientProvider({ children }: { children: React.ReactNode })
               'Authorization': `Bearer ${userToken}` 
             },
             body: JSON.stringify(params)
+          });
+          return res.json();
+        }
+      }),
+      defineTool({
+        name: "getCloudStatus",
+        description: "Check the current connection status for AWS and GCP providers. Use this to determine if the user has onboarded their cloud accounts.",
+        inputSchema: z.object({}),
+        tool: async () => {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cloud/status`, {
+            headers: { 'Authorization': `Bearer ${userToken}` }
           });
           return res.json();
         }

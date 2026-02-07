@@ -10,6 +10,19 @@ class GCPAdapter extends BaseCloudAdapter {
   async getAuthClient(userId) {
     if (userId && userId !== 'dev-user') {
       const connection = await credentialService.getConnection(userId, 'gcp');
+      
+      // Support for new Direct Onboarding (Service Account JSON)
+      if (connection && (connection.client_email || connection.private_key)) {
+        console.log(`🛡️ [GCP] Using Direct Service Account credentials for user ${userId}`);
+        const { GoogleAuth } = require('google-auth-library');
+        const auth = new GoogleAuth({
+          credentials: connection,
+          scopes: ['https://www.googleapis.com/auth/cloud-platform']
+        });
+        return await auth.getClient();
+      }
+
+      // Legacy OAuth2 Support (Scraped but keeping for backwards compatibility if needed)
       if (connection && connection.refreshToken) {
         const client = new OAuth2Client(
           process.env.GOOGLE_CLIENT_ID,
@@ -39,10 +52,22 @@ class GCPAdapter extends BaseCloudAdapter {
 
     // Fallback to service account auth (default)
     const { GoogleAuth } = require('google-auth-library');
+    const path = require('path');
+    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, '..', '..', 'config', 'service-account.json');
+    
     const auth = new GoogleAuth({
+      keyFilename: keyPath,
       scopes: ['https://www.googleapis.com/auth/cloud-platform']
     });
-    return auth.getClient();
+
+    try {
+      console.log(`�️ [GCP] Using Explicit SA Path: ${keyPath}`);
+      const client = await auth.getClient();
+      return client;
+    } catch (error) {
+      console.error('❌ [GCPAdapter] Auth fallback failed:', error.message);
+      throw new Error("GCP_AUTH_FAILED: No valid user connection or service account found.");
+    }
   }
 
   async getBilling(userId) {
@@ -61,9 +86,6 @@ class GCPAdapter extends BaseCloudAdapter {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return { success: true, provider: 'gcp', currentSpend: 17.90, mock: true };
-      }
       throw error;
     }
   }
@@ -91,14 +113,6 @@ class GCPAdapter extends BaseCloudAdapter {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return { 
-          success: true, 
-          provider: 'gcp', 
-          resources: [{ name: 'auth-service-v2', type: 'cloud-run', status: 'running' }],
-          mock: true 
-        };
-      }
       throw error;
     }
   }
@@ -126,10 +140,6 @@ class GCPAdapter extends BaseCloudAdapter {
           message: `Resource ${params.resourceName} termination sequence initiated on GCP` 
         };
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[GCPAdapter] MOCK STOP: ${params.resourceName}`);
-          return { success: true, action, message: `[MOCK] Resource ${params.resourceName} stopped on GCP` };
-        }
         throw error;
       }
     }

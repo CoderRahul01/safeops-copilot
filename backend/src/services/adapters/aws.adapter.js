@@ -14,6 +14,20 @@ class AWSAdapter extends BaseCloudAdapter {
     
     if (userId && userId !== 'dev-user') {
       const connection = await credentialService.getConnection(userId, 'aws');
+      
+      // Support for new Direct Onboarding (Access Keys)
+      if (connection && connection.accessKey && connection.secretKey) {
+        console.log(`🛡️ [AWS] Using Direct Access Key credentials for user ${userId}`);
+        return {
+          ...baseConfig,
+          credentials: {
+            accessKeyId: connection.accessKey,
+            secretAccessKey: connection.secretKey
+          }
+        };
+      }
+
+      // Legacy STS Role Support (Federated Identity)
       if (connection && connection.roleArn) {
         console.log(`🛡️ [STS] Assuming role for user ${userId}: ${connection.roleArn}`);
         const { STSClient, AssumeRoleCommand } = require("@aws-sdk/client-sts");

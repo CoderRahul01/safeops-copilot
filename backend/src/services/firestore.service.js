@@ -21,8 +21,8 @@ class FirestoreService {
       this.db = await firestoreConfig.initialize();
       this.initialized = true;
       
-      // Initialize with sample data if collections are empty
-      await this.initializeSampleData();
+      // Sample data initialization disabled to ensure strictly real-time telemetry
+      // await this.initializeSampleData();
     }
     return this.db;
   }
@@ -158,23 +158,6 @@ class FirestoreService {
           ...data
         });
       });
-
-      // If no deployments found (e.g., due to permissions), return sample data
-      if (deployments.length === 0) {
-        return [
-          {
-            id: 'srv-demo-001',
-            name: 'demo-service',
-            cloud: 'Google Cloud',
-            cost: 0.00,
-            waste: 0,
-            region: 'us-central1',
-            status: 'running',
-            service: 'demo-service'
-          }
-        ];
-      }
-
       return deployments;
     } catch (error) {
       console.error('❌ Failed to get deployments:', error);

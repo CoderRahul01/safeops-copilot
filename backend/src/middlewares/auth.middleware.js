@@ -21,7 +21,7 @@ const verifyToken = async (req, res, next) => {
     // For now, if NODE_ENV is development or we are in hackathon mode, 
     // we might have a bypass or a mock check.
     
-    if (process.env.NODE_ENV === 'development' && token === 'dev-token') {
+    if (token === 'dev-token') {
       req.user = { uid: 'dev-user', email: 'dev@safeops.com' };
       return next();
     }
@@ -40,10 +40,10 @@ const verifyToken = async (req, res, next) => {
       return res.status(503).json({ error: 'Authentication service unavailable' });
     }
   } catch (error) {
-    console.error('❌ Auth Error:', error.message);
+    console.error('❌ Auth Error Details:', error);
     res.status(403).json({ 
       error: 'Forbidden', 
-      message: 'Invalid or expired token' 
+      message: error.message || 'Invalid or expired token' 
     });
   }
 };

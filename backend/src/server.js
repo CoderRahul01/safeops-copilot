@@ -42,13 +42,16 @@ async function init() {
     ]);
     console.log('🔥 Firestore & 🍃 MongoDB connected successfully');
     
-    // 4. Validate Cloud Credentials
-    const gcpStatus = await gcpService.checkCredentials();
-    if (gcpStatus.authenticated) {
-      console.log(`🌐 GCP authenticated for project: ${gcpStatus.projectId}`);
-    } else {
-      console.warn('⚠️  GCP authentication not fully configured');
-    }
+    // 4. Validate Cloud Credentials (Run in background to avoid boot hang)
+    gcpService.checkCredentials().then(gcpStatus => {
+      if (gcpStatus.authenticated) {
+        console.log(`🌐 GCP authenticated for project: ${gcpStatus.projectId}`);
+      } else {
+        console.warn('⚠️  GCP authentication not fully configured:', gcpStatus.error || 'Unknown error');
+      }
+    }).catch(err => {
+      console.warn('⚠️  GCP auth check failed (silent):', err.message);
+    });
     
     // 5. Start Listener
     const server = app.listen(port, '0.0.0.0', () => {
@@ -79,5 +82,14 @@ const gracefulShutdown = async (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
 
 init();

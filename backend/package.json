@@ -21,6 +21,7 @@
     "@aws-sdk/client-lambda": "^3.744.0",
     "@aws-sdk/client-sts": "^3.984.0",
     "@google-cloud/firestore": "^8.3.0",
+    "@google-cloud/logging": "^11.2.1",
     "@google-cloud/vertexai": "^1.10.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

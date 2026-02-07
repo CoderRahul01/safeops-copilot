@@ -5,6 +5,10 @@
 
 const gcpService = require('../../services/gcp.service');
 const awsService = require('../../services/aws.service');
+const awsAdapter = require('../../services/adapters/aws.adapter');
+const gcpAdapter = require('../../services/adapters/gcp.adapter');
+const credentialService = require('../../services/credential.service');
+const loggingService = require('../../services/logging.service');
 
 // GCP Handlers
 const listGcpServices = async (req, res) => {
@@ -29,9 +33,6 @@ const stopGcpService = async (req, res) => {
     res.status(500).json({ error: 'Failed to stop GCP service', message: error.message });
   }
 };
-
-const awsAdapter = require('../../services/adapters/aws.adapter');
-const gcpAdapter = require('../../services/adapters/gcp.adapter');
 
 // AWS Handlers
 const listAwsServices = async (req, res) => {
@@ -72,92 +73,70 @@ const terminateResource = async (req, res) => {
 const updateCredentials = async (req, res) => {
     try {
         const { provider, credentials } = req.body;
-        console.log(`🔌 [Realtime] Updating ${provider} connection keys...`);
-        // In a real app, this would re-instantiate the adapter with new keys
-        res.json({ success: true, message: `${provider.toUpperCase()} link re-established with new identity.` });
+        const userId = req.user.uid;
+
+        console.log(`🔌 [Simplification] Direct Onboarding: Received ${provider} keys for User ${userId}`);
+        await credentialService.storeConnection(userId, provider, credentials);
+
+        res.json({ 
+          success: true, 
+          message: `${provider.toUpperCase()} connection established using direct credentials. Uplink verified.` 
+        });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update credentials' });
+        console.error('❌ [Onboarding] Failed to store credentials:', error);
+        res.status(500).json({ 
+          error: 'Failed to onboard credentials', 
+          message: error.message
+        });
+    }
+};
+
+const getCloudOverview = async (req, res) => {
+    try {
+        const userId = req.user?.uid || 'dev-user';
+        const [logs, awsConn, gcpConn] = await Promise.all([
+            loggingService.getLogs(userId),
+            credentialService.getConnection(userId, 'aws'),
+            credentialService.getConnection(userId, 'gcp')
+        ]);
+
+        res.json({
+            logs,
+            status: {
+                aws: !!awsConn,
+                gcp: !!gcpConn
+            }
+        });
+    } catch (error) {
+        console.error('Failed to fetch cloud overview:', error);
+        res.status(500).json({ error: 'Failed to fetch cloud overview', message: error.message });
     }
 };
 
 const getCloudLogs = async (req, res) => {
     try {
-        const logs = [
-            { timestamp: new Date().toISOString(), level: 'info', message: "SOP-KERNEL-LINK: Active monitoring engaged." },
-            { timestamp: new Date().toISOString(), level: 'success', message: "GATEWAY: Multi-cloud handshake finalized." },
-            { timestamp: new Date().toISOString(), level: 'info', message: "POLICY-ENGINE: Standard safety rules active." }
-        ];
+        const userId = req.user?.uid || 'dev-user';
+        const logs = await loggingService.getLogs(userId);
         res.json(logs);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch logs' });
+        console.error('Failed to fetch logs:', error);
+        res.status(500).json({ error: 'Failed to fetch logs', message: error.message });
     }
 };
 
-const credentialService = require('../../services/credential.service');
-const { OAuth2Client } = require('google-auth-library');
-
-const connectGCP = async (req, res) => {
-  try {
-    const client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/cloud/callback'
-    );
-
-    const url = client.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/cloud-platform.read-only', 'https://www.googleapis.com/auth/compute'],
-      prompt: 'consent',
-      state: req.user.uid // Pass user ID to associate token correctly
-    });
-
-    res.json({ url });
-  } catch (error) {
-    console.error('Failed to generate GCP Auth URL:', error);
-    res.status(500).json({ error: 'Failed to initiate GCP connection' });
-  }
-};
-
-const oauthCallback = async (req, res) => {
-  try {
-    const { code, state: userId } = req.body;
-    if (!code || !userId) return res.status(400).json({ error: 'Code and state (userId) are required' });
-
-    const client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/cloud/callback'
-    );
-
-    const { tokens } = await client.getToken(code);
-    
-    await credentialService.storeConnection(userId, 'gcp', {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiry: tokens.expiry_date
-    });
-
-    res.json({ success: true, message: 'GCP connection established securely.' });
-  } catch (error) {
-    console.error('OAuth Callback Error:', error);
-    res.status(500).json({ error: 'Failed to finalize cloud connection' });
-  }
-};
-
-// AWS STS Connection (Simple version: Store Role ARN and assume using OIDC token on-demand)
-const connectAWS = async (req, res) => {
+const getConnectionStatus = async (req, res) => {
     try {
-        const { roleArn } = req.body;
-        if (!roleArn) return res.status(400).json({ error: 'Role ARN is required' });
+        const userId = req.user.uid;
+        const awsConn = await credentialService.getConnection(userId, 'aws');
+        const gcpConn = await credentialService.getConnection(userId, 'gcp');
 
-        await credentialService.storeConnection(req.user.uid, 'aws', {
-            roleArn,
-            status: 'PENDING_VERIFICATION'
+        res.json({
+            aws: !!awsConn,
+            gcp: !!gcpConn
         });
-
-        res.json({ success: true, message: 'AWS Role ARN registered. Connectivity will be verified on next operational task.' });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to register AWS role' });
+        console.error('Failed to get connection status:', error);
+        res.status(500).json({ error: 'Failed to get connection status', message: error.message });
     }
 };
 
@@ -168,7 +147,6 @@ module.exports = {
   terminateResource,
   updateCredentials,
   getCloudLogs,
-  connectGCP,
-  connectAWS,
-  oauthCallback
+  getConnectionStatus,
+  getCloudOverview
 };

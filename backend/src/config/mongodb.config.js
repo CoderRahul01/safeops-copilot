@@ -6,12 +6,32 @@ const MONGODB_URI =
 
 async function connect() {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log("🍃 MongoDB connected successfully");
+    // Force database name 'safeops' if not present in URI
+    const options = {
+      dbName: 'safeops',
+      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 5000
+    };
+
+    console.log("🍃 Attempting MongoDB connection [Database: safeops]...");
+    
+    // Register connection listeners before connecting
+    mongoose.connection.on('connected', () => {
+      console.log("✅ MongoDB Protocol: UP - Connected to safeops cluster.");
+    });
+
+    mongoose.connection.on('error', (err) => {
+      console.log("❌ MongoDB Protocol: DOWN - Connection error:", err.message);
+    });
+
+    await mongoose.connect(MONGODB_URI, options);
+    
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error.message);
-    // In production, we might want to exit, but in dev we might keep trying
-    if (process.env.NODE_ENV === "production") {
+    console.error("❌ MongoDB INITIALIZATION FAILURE:", error.message);
+    console.warn("⚠️  SYSTEM DEGRADED: Continuing without transactional persistence (Intents/Audit).");
+    
+    // In production, we might want to exit if transactional integrity is critical
+    if (process.env.NODE_ENV === "production" && process.env.STRICT_DB === "true") {
       process.exit(1);
     }
   }

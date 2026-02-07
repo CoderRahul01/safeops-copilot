@@ -37,8 +37,13 @@ class IntentService {
       ...normalized,
       status: 'PENDING_VALIDATION'
     });
-
-    await intent.save();
+    
+    try {
+      await intent.save();
+      console.log(`📦 [Data Partition] PERSISTED to Transactional Trace (MongoDB): Intent ID ${intent._id}`);
+    } catch (e) {
+      console.warn('⚠️  Stateless Mode: Could not persist Intent to MongoDB. (Check Atlas IP Whitelist)');
+    }
     return intent;
   }
 
@@ -76,8 +81,10 @@ class IntentService {
         3. If it's a "Write" action (stop, delete, disable), requiresConfirmation MUST be true.
         4. Break the journey into clear tactical steps using the 'steps' array.
         5. For 'STOP_RESOURCE' actions, ensure 'parameters' includes 'resourceId' and 'resourceName'.
-        6. For 'GET_CONNECTIVITY' queries, return data for the 'CloudConnectivityStatus' component.
-        7. Always use a CINEMATIC_TECHNICAL_CONSOLE tone.
+        6. For 'LIST_RESOURCES' queries, return data for the 'ResourceList' component.
+        7. For 'GET_BILLING' queries, return data for the 'SafetyCard' or 'StatusMeter' component.
+        8. For 'GET_CONNECTIVITY' queries, return data for the 'CloudConnectivityStatus' component.
+        9. Always use a CINEMATIC_TECHNICAL_CONSOLE tone.
       `;
 
       const request = {
@@ -109,7 +116,11 @@ class IntentService {
       intent.status = intent.requiresConfirmation ? 'PENDING_CONFIRMATION' : 'EXECUTING';
     }
 
-    await intent.save();
+    try {
+      await intent.save();
+    } catch (e) {
+      console.warn('⚠️  Could not update Intent status in MongoDB.');
+    }
     return intent;
   }
 
@@ -160,6 +171,17 @@ class IntentService {
       };
     }
 
+    if (p.includes('log') || p.includes('connectivity') || p.includes('link')) {
+      return {
+        ...base,
+        intentType: 'CONNECTIVITY',
+        provider: p.includes('aws') ? 'aws' : (p.includes('gcp') ? 'gcp' : 'multi'),
+        action: 'GET_CONNECTIVITY',
+        confidence: 0.9,
+        requiresConfirmation: false
+      };
+    }
+
     return {
       ...base,
       intentType: 'UNKNOWN',
@@ -185,7 +207,12 @@ class IntentService {
       severity: intent.requiresConfirmation ? 'MEDIUM' : 'INFO'
     });
     
-    await audit.save();
+    try {
+      await audit.save();
+      console.log(`🔊 [Audit Trail] RECORDED in MongoDB: ${intent.action} for User ${intent.userId}`);
+    } catch (e) {
+      console.warn('⚠️  Audit Persistence Failed: Security trace not captured in MongoDB.');
+    }
     return audit;
   }
 }

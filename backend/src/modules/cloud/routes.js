@@ -14,12 +14,9 @@ router.get('/aws/services', verifyToken, controllers.listAwsServices);
 router.post('/terminate', verifyToken, controllers.terminateResource);
 
 // Real-time Cloud Management
+router.get('/status', verifyToken, controllers.getConnectionStatus);
+router.get('/overview', verifyToken, controllers.getCloudOverview);
 router.post('/update-credentials', verifyToken, controllers.updateCredentials);
 router.get('/logs', verifyToken, controllers.getCloudLogs);
-
-// Secure Federation Routes
-router.post('/connect/aws', verifyToken, controllers.connectAWS);
-router.get('/connect/gcp', verifyToken, controllers.connectGCP);
-router.post('/oauth/callback', verifyToken, controllers.oauthCallback);
 
 module.exports = router;
