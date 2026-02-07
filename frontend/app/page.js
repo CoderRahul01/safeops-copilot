@@ -20,8 +20,8 @@ export default function SafeOpsDashboard() {
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState("Dashboard");
   
-  const [billingData, setBillingData] = useState({ totalSpend: 420.69, budget: 1000 });
-  const [riskMetrics, setRiskMetrics] = useState({ risk_score: 0.15, active_resources: 12, saving_potential: 85.00 });
+  const [billingData, setBillingData] = useState({ totalSpend: 0, budget: 1000 });
+  const [riskMetrics, setRiskMetrics] = useState({ risk_score: 0, active_resources: 0, saving_potential: 0 });
   const [auditChecks, setAuditChecks] = useState([
     { category: "IAM_POLICIES", status: 'PASS', message: "All root accounts MFA enabled." },
     { category: "NETWORK_GATE", status: 'WARN', message: "Port 22 open on 2 dev instances." },
@@ -33,20 +33,48 @@ export default function SafeOpsDashboard() {
     { completed: false, label: "Patch Fleet", description: "Deploying security update SEC-042..." }
   ]);
 
+  const fetchDashboardData = React.useCallback(async () => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) return;
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/api/billing/context`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (data.billingStatus) {
+        setBillingData({
+          totalSpend: data.billingStatus.totalSpend,
+          budget: data.billingStatus.limit || 1000
+        });
+      }
+      
+      if (data.metrics) {
+        setRiskMetrics({
+          risk_score: data.metrics.risk_count / (data.metrics.active_resources || 1),
+          active_resources: data.metrics.active_resources,
+          saving_potential: parseFloat(data.metrics.saving_potential)
+        });
+      }
+
+      if (data.securityChecks) {
+        setAuditChecks(data.securityChecks);
+      }
+    } catch (err) {
+      console.error("Dashboard sync failed:", err);
+    }
+  }, [user]);
+
   useEffect(() => {
     setMounted(true);
-    const interval = setInterval(() => {
-      setBillingData(prev => ({
-        ...prev,
-        totalSpend: +(prev.totalSpend + (Math.random() * 0.5)).toFixed(2)
-      }));
-      setRiskMetrics(prev => ({
-        ...prev,
-        risk_score: Math.max(0.05, Math.min(0.95, prev.risk_score + (Math.random() * 0.02 - 0.01)))
-      }));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    if (user) {
+      fetchDashboardData();
+      const interval = setInterval(fetchDashboardData, 30000); // Sync every 30s
+      return () => clearInterval(interval);
+    }
+  }, [user, fetchDashboardData]);
 
   const handleRemediate = async (stepIndex) => {
     try {

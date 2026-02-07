@@ -7,6 +7,11 @@
 const firestoreConfig = require('../config/firestore.config');
 const { v4: uuidv4 } = require('uuid');
 
+// Lazy require to avoid circular dependencies if any
+const getCredentialService = () => require('./credential.service');
+const getAwsAdapter = () => require('./adapters/aws.adapter');
+const getGcpAdapter = () => require('./adapters/gcp.adapter');
+
 class FirestoreService {
   constructor() {
     this.db = null;
@@ -212,18 +217,36 @@ class FirestoreService {
    */
   async getSnapshot(userId = 'default-user') {
     try {
-      const [deployments, budget] = await Promise.all([
+      const credentialService = getCredentialService();
+      const awsAdapter = getAwsAdapter();
+      const gcpAdapter = getGcpAdapter();
+
+      const [awsConn, gcpConn, deployments, budget] = await Promise.all([
+        credentialService.getConnection(userId, 'aws'),
+        credentialService.getConnection(userId, 'gcp'),
         this.getDeployments(),
         this.getBudget(userId)
       ]);
 
-      const highWaste = deployments.filter(d => d.waste > 70);
-      const potentialSavings = highWaste.reduce((acc, d) => acc + d.cost, 0);
+      let liveResources = [];
+      if (awsConn || gcpConn) {
+        const results = await Promise.all([
+          awsConn ? awsAdapter.listResources(userId) : Promise.resolve([]),
+          gcpConn ? gcpAdapter.listResources(userId) : Promise.resolve([])
+        ]);
+        liveResources = results.flat();
+      }
+
+      // If we have live connections, use live counts even if deployments collection is empty
+      const finalResources = (awsConn || gcpConn) ? liveResources : deployments;
+
+      const highWaste = finalResources.filter(d => (d.waste > 70) || (d.status === 'RUNNING' && d.cost > 5));
+      const potentialSavings = highWaste.reduce((acc, d) => acc + (parseFloat(d.cost) || 0), 0);
 
       return {
         billing: budget,
         inventory: {
-          total: deployments.length,
+          total: finalResources.length,
           highRisk: highWaste.length,
           potentialSavings: potentialSavings.toFixed(2)
         },
