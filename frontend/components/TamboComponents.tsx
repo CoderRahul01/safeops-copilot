@@ -219,7 +219,7 @@ function ResourceListInternal({ resources: propsResources }: ResourceListProps) 
     const fetchResources = async () => {
       try {
         const token = await user.getIdToken();
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         
         // Fetch connection status and resources in parallel
         const [connRes, invRes] = await Promise.all([
@@ -228,11 +228,26 @@ function ResourceListInternal({ resources: propsResources }: ResourceListProps) 
         ]);
 
         const connData = await connRes.json();
-        setConnectionInfo(connData);
+        setConnectionInfo({
+          aws: connData.aws?.connected || false,
+          gcp: connData.gcp?.connected || false
+        });
 
-        const data = await invRes.json();
-        if (Array.isArray(data)) {
-          setResources(data);
+        const invData = await invRes.json();
+        
+        // Handle Semantic REPORT structure
+        if (invData.type === 'REPORT' && Array.isArray(invData.sections)) {
+          const mappedResources = invData.sections.map((s: { title: string; value: string }) => {
+            const [cloud, status] = s.value.split(' | ');
+            return {
+              name: s.title,
+              cloud: cloud.toLowerCase(),
+              status: status.toLowerCase()
+            };
+          });
+          setResources(mappedResources);
+        } else if (Array.isArray(invData)) {
+          setResources(invData);
         } else {
           setResources([]);
         }
@@ -255,7 +270,7 @@ function ResourceListInternal({ resources: propsResources }: ResourceListProps) 
       const token = await user?.getIdToken();
       if (!token) throw new Error("No auth token available");
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/api/cloud/terminate`, {
         method: 'POST',
         headers: { 
@@ -746,7 +761,7 @@ export function CloudConnectivityStatusInternal({ provider, status: propStatus, 
     const fetchStatus = async () => {
       try {
         const token = await user.getIdToken();
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await fetch(`${apiUrl}/api/cloud/status`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });

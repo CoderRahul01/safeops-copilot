@@ -196,24 +196,24 @@ class IntentService {
    * Log an action to the audit trail
    */
   async logAudit(intent, payload, result = null) {
-    const audit = new Audit({
-      userId: intent.userId,
-      orgId: intent.orgId,
-      intentId: intent._id,
-      provider: intent.provider,
-      action: intent.action,
-      payload,
-      newState: result,
-      severity: intent.requiresConfirmation ? 'MEDIUM' : 'INFO'
-    });
+    const auditService = require('./audit.service');
     
-    try {
-      await audit.save();
-      console.log(`🔊 [Audit Trail] RECORDED in MongoDB: ${intent.action} for User ${intent.userId}`);
-    } catch (e) {
-      console.warn('⚠️  Audit Persistence Failed: Security trace not captured in MongoDB.');
-    }
-    return audit;
+    // Convert intent action into a report-like structure for the audit service
+    const report = {
+      type: 'REPORT',
+      reportType: intent.action,
+      summary: `Action ${intent.action} executed via Intent ${intent._id}`,
+      metadata: {
+        provider: intent.provider,
+        impact: intent.requiresConfirmation ? 'Medium' : 'Low',
+        risk: intent.requiresConfirmation ? 'Caution' : 'Minimal'
+      },
+      payload,
+      result,
+      timestamp: new Date().toISOString()
+    };
+
+    return await auditService.recordReport(intent.userId, report, intent._id);
   }
 }
 

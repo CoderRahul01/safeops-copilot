@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const CloudConnection = require('../models/cloud-connection.model');
 
 /**
  * Credential Service
@@ -67,20 +68,46 @@ class CredentialService {
    * @param {object} credentials - The credential object (JSON or Keys)
    */
   async storeConnection(userId, provider, credentials) {
-    const admin = require('firebase-admin');
-    const db = admin.firestore();
-    
-    // Encrypt the entire credentials object as a string for maximum security
-    const encryptedData = this.encrypt(JSON.stringify(credentials));
-    
     try {
-      await db.collection('connections').doc(`${userId}_${provider}`).set({
-        userId,
-        provider,
-        encryptedData,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      console.log(`✅ [CredentialService] Stored ${provider} credentials for user ${userId}`);
+      // Extract metadata for faster querying and dashboard status
+      let projectId = null;
+      let accountId = null;
+
+      if (provider === 'gcp') {
+        projectId = credentials.project_id || credentials.projectId;
+      } else if (provider === 'aws') {
+        // We don't necessarily have accountId in credentials, but we can store it later
+        accountId = credentials.accountId; 
+      }
+
+      // Encrypt the entire credentials object as a string for maximum security
+      const encryptedData = this.encrypt(JSON.stringify(credentials));
+      
+      await CloudConnection.findOneAndUpdate(
+        { userId, provider },
+        { 
+          userId, 
+          provider, 
+          projectId, 
+          accountId,
+          encryptedData, 
+          status: 'CONNECTED',
+          connectedAt: new Date()
+        },
+        { upsert: true, new: true }
+      );
+
+      console.log(`✅ [CredentialService] Stored ${provider} credentials for user ${userId} in MongoDB`);
+      
+      const auditService = require('./audit.service');
+      await auditService.recordReport(userId, {
+        type: 'REPORT',
+        reportType: 'CLOUD_CONNECTION_STORED',
+        summary: `Stored ${provider.toUpperCase()} credentials`,
+        metadata: { provider, impact: 'Critical', risk: 'Secured' },
+        timestamp: new Date().toISOString()
+      });
+
       return true;
     } catch (error) {
       console.error(`❌ [CredentialService] Failed to store ${provider} credentials:`, error);
@@ -94,19 +121,20 @@ class CredentialService {
    * @param {string} provider - 'aws' or 'gcp'
    */
   async getConnection(userId, provider) {
-    const admin = require('firebase-admin');
-    const db = admin.firestore();
-    
-    const doc = await db.collection('connections').doc(`${userId}_${provider}`).get();
-    if (!doc.exists) return null;
-    
-    const data = doc.data();
-    if (data.encryptedData) {
-      const decrypted = this.decrypt(data.encryptedData);
-      return JSON.parse(decrypted);
+    try {
+      const connection = await CloudConnection.findOne({ userId, provider });
+      if (!connection) return null;
+      
+      if (connection.encryptedData) {
+        const decrypted = this.decrypt(connection.encryptedData);
+        return JSON.parse(decrypted);
+      }
+      
+      return connection.toObject();
+    } catch (error) {
+      console.error(`❌ [CredentialService] Failed to get ${provider} connection:`, error);
+      return null;
     }
-    
-    return data;
   }
 }
 

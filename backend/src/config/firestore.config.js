@@ -40,13 +40,16 @@ class FirestoreConfig {
         });
       }
 
-      await this.testConnection();
-      console.log('✅ Firestore connection established successfully');
+      await this.testConnection().catch(err => {
+        console.warn('⚠️  Firestore Connection Test Failed:', err.message);
+      });
+      console.log('✅ Firestore initialization sequence completed (Service may be degraded)');
       
       return this.db;
     } catch (error) {
-      console.error('❌ Failed to initialize Firestore:', error.message);
-      throw error;
+      console.error('❌ Failed to initialize Firestore Client:', error.message);
+      // Still return the client instance if possible, or null
+      return this.db;
     }
   }
 

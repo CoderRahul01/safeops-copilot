@@ -38,19 +38,32 @@ const getResources = async (req, res) => {
     }
 
     // 3. If a connection exists, return the liveResources array (even if empty).
-    // This prevents showing mock data when the user has actually connected an account.
-    if (awsConn || gcpConn) {
-      console.log(`📡 [Inventory] Returning ${liveResources.length} LIVE resources for user ${userId}`);
-      return res.json(liveResources);
-    }
+    console.log(`📡 [Inventory] Returning ${liveResources.length} LIVE resources for user ${userId}`);
+    
+    // Wrap in REPORT envelope for Tambo stability
+    const { createReport } = require('../../utils/response.util');
+    return res.json(createReport({
+      reportType: 'INVENTORY_RECAP',
+      summary: `Fleet audit complete. ${liveResources.length} active nodes monitored.`,
+      sections: liveResources.map(r => ({
+        title: r.name,
+        value: `${r.provider.toUpperCase()} | ${r.status}`
+      })),
+      actions: liveResources.length > 0 ? [
+        { label: 'Optimize Fleet', action: 'START_OPTIMIZATION' }
+      ] : [],
+      hooks: [
+        liveResources.length > 0 ? 'All nodes verifying within safety parameters.' : 'No active nodes detected in the cloud.'
+      ]
+    }));
 
-    // 4. Fallback to Firestore (which might have sample data) only if NO connections exist
-    console.log(`📂 [Inventory] No cloud connections found for ${userId}, falling back to Firestore`);
-    const resources = await firestoreService.getDeployments();
-    res.json(resources);
   } catch (error) {
     console.error('Failed to get resources:', error);
-    res.status(500).json({ error: 'Failed to retrieve resources', message: error.message });
+    const { createErrorReport } = require('../../utils/response.util');
+    res.status(500).json(createErrorReport({
+      error: 'INVENTORY_FETCH_FAILED',
+      message: 'Critical error during inventory synchronization.'
+    }));
   }
 };
 

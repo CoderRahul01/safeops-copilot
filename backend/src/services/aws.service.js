@@ -63,15 +63,6 @@ class AWSService {
       };
     } catch (error) {
       console.error('❌ Failed to get AWS billing:', error.message);
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          success: true,
-          provider: 'aws',
-          currentSpend: 42.15,
-          mock: true,
-          message: 'Development mode: Using mock AWS billing'
-        };
-      }
       throw error;
     }
   }
@@ -116,14 +107,6 @@ class AWSService {
       };
     } catch (error) {
       console.error('❌ Failed to list AWS resources:', error.message);
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          success: true,
-          provider: 'aws',
-          resources: [{ id: 'i-mock-123', name: 'mock-ec2', type: 'ec2', status: 'running' }],
-          mock: true
-        };
-      }
       throw error;
     }
   }

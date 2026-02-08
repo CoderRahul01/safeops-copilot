@@ -101,10 +101,10 @@ class AWSAdapter extends BaseCloudAdapter {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return { success: true, provider: 'aws', currentSpend: 42.15, mock: true };
-      }
-      throw error;
+      console.error('❌ [AWSAdapter] getBilling failed:', error.message);
+      const err = new Error(`AWS_BILLING_FAILED: ${error.message}`);
+      err.code = 'BILLING_DISABLED';
+      throw err;
     }
   }
 
@@ -140,10 +140,10 @@ class AWSAdapter extends BaseCloudAdapter {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return { success: true, provider: 'aws', resources: [{ id: 'i-mock-123', type: 'ec2', status: 'running' }], mock: true };
-      }
-      throw error;
+      console.error('❌ [AWSAdapter] listResources failed:', error.message);
+      const err = new Error(`AWS_RESOURCES_FAILED: ${error.message}`);
+      err.code = 'CREDENTIAL_EXPIRED';
+      throw err;
     }
   }
 

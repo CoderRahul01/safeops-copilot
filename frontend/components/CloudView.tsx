@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cloud, Shield, Terminal, RefreshCw, Zap } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import { fetchWithAuth } from "../utils/api";
 
 interface LogEntry {
   timestamp: string;
@@ -23,16 +24,22 @@ export function CloudView() {
   const fetchOverview = React.useCallback(async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      console.log("🚀 [UPLINK-REV-2.1] SYNCHRONIZING WITH CLOUD CORE...");
-      const res = await fetch(`${apiUrl}/api/cloud/overview`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const [statusRes, logsRes] = await Promise.all([
+        fetchWithAuth('/api/cloud/status'),
+        fetchWithAuth('/api/cloud/logs')
+      ]);
+
+      const statusData = await statusRes.json();
+      const logsData = await logsRes.json();
       
-      if (data.status) setConnectionStatus(data.status);
-      if (Array.isArray(data.logs)) setLogs(data.logs);
+      setConnectionStatus({
+        aws: statusData.aws?.connected || false,
+        gcp: statusData.gcp?.connected || false
+      });
+
+      if (logsData.type === 'LOG_REPORT' && Array.isArray(logsData.entries)) {
+        setLogs(logsData.entries);
+      }
     } catch (err) {
       console.error("Failed to fetch cloud overview:", err);
     }
@@ -69,27 +76,19 @@ export function CloudView() {
     addLog(`AWS-UPLINK: Establishing secure identity link...`, 'info');
     
     try {
-      const token = await user?.getIdToken();
-      if (!token) throw new Error("No auth token available");
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/api/cloud/update-credentials`, {
+      const res = await fetchWithAuth('/api/cloud/update-credentials', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ 
           provider: 'aws', 
           credentials: { accessKey, secretKey } 
         })
       });
       const result = await res.json();
-      if (result.success) {
-        addLog(`AWS-SUCCESS: ${result.message}`, 'success');
+      if (result.type === 'REPORT') {
+        addLog(`AWS-SUCCESS: ${result.summary}`, 'success');
         fetchOverview();
       } else {
-        addLog(`AWS-ERROR: ${result.error}`, 'error');
+        addLog(`AWS-ERROR: ${result.message || 'Uplink failed'}`, 'error');
       }
     } catch {
       addLog(`AWS-ERROR: Uplink failed.`, 'error');
@@ -107,27 +106,19 @@ export function CloudView() {
     
     try {
       const credentials = JSON.parse(jsonStr);
-      const token = await user?.getIdToken();
-      if (!token) throw new Error("No auth token available");
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/api/cloud/update-credentials`, {
+      const res = await fetchWithAuth('/api/cloud/update-credentials', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ 
           provider: 'gcp', 
           credentials
         })
       });
       const result = await res.json();
-      if (result.success) {
-        addLog(`GCP-SUCCESS: ${result.message}`, 'success');
+      if (result.type === 'REPORT') {
+        addLog(`GCP-SUCCESS: ${result.summary}`, 'success');
         fetchOverview();
       } else {
-        addLog(`GCP-ERROR: ${result.error}`, 'error');
+        addLog(`GCP-ERROR: ${result.message || 'Uplink failed'}`, 'error');
       }
     } catch (e) {
       addLog(`GCP-ERROR: Invalid JSON or Uplink failure.`, 'error');

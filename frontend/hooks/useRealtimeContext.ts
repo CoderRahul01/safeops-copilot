@@ -25,17 +25,13 @@ export function useRealtimeContext() {
   const fetchContext = useCallback(async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const { fetchWithAuth } = await import('../utils/api');
       setError(null);
-      const res = await fetch(`${apiUrl}/api/context`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetchWithAuth('/api/context');
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
       const data = await res.json();
-      console.log("🔄 SafeOps: Real-time context updated", data);
       setContext(data);
     } catch (err) {
       console.error("❌ SafeOps: Failed to fetch context", err);

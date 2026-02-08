@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Removed standalone output for development
+  output: 'standalone',
 };
 
 export default nextConfig;

@@ -56,11 +56,17 @@ class LoggingService {
 
       const [entries] = await logging.getEntries(options);
 
-      return entries.map(entry => ({
+      const logEntries = entries.map(entry => ({
         timestamp: entry.metadata.timestamp || new Date().toISOString(),
         level: this.mapSeverityToLevel(entry.metadata.severity),
         message: this.extractMessage(entry)
       }));
+
+      const { createLogReport } = require('../utils/response.util');
+      return createLogReport({
+        source: 'GCP',
+        entries: logEntries
+      });
     } catch (error) {
       console.error('Failed to fetch GCP logs:', error);
       throw error;

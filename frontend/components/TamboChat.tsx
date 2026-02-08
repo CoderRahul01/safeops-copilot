@@ -5,6 +5,7 @@ import { useTamboThread, useTamboThreadInput, useTamboGenerationStage, useTamboS
 import { Send, Loader2, MessageSquare, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/components/AuthProvider";
+import { fetchWithAuth } from "@/utils/api";
 
 interface MessagePart {
   type: string;
@@ -32,15 +33,10 @@ export default function TamboChat() {
   const syncWithMemory = useCallback(async (msg: Message) => {
     if (!user || !msg || !currentThread) return;
     try {
-      const token = await user.getIdToken();
       const content = msg.content?.map((p: MessagePart) => p.text).join('\n') || '';
       
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/store`, {
+      await fetchWithAuth('/api/ai/store', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           content,
           role: msg.role,
@@ -82,10 +78,8 @@ export default function TamboChat() {
     await submit();
     
     if (user) {
-        const token = await user.getIdToken();
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/store`, {
+        fetchWithAuth('/api/ai/store', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ content: val, role: 'user' })
         }).catch(err => console.error('Immediate sync failed:', err));
     }

@@ -4,8 +4,9 @@
  * Implements the data models defined in the design document
  */
 
+const crypto = require('crypto');
 const firestoreConfig = require('../config/firestore.config');
-const { v4: uuidv4 } = require('uuid');
+const uuidv4 = () => crypto.randomUUID();
 
 // Lazy require to avoid circular dependencies if any
 const getCredentialService = () => require('./credential.service');

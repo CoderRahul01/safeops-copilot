@@ -9,7 +9,7 @@ require('dotenv').config();
 class GCPService {
   constructor() {
     const path = require('path');
-    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, 'config', 'service-account.json');
+    const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, '..', 'config', 'service-account.json');
     
     this.auth = new GoogleAuth({
       keyFilename: keyPath,

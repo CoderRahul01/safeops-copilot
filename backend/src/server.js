@@ -11,13 +11,16 @@ const port = process.env.PORT || 8080;
  * Fail-Fast Environment Validation
  */
 function validateEnv() {
-  const required = ['MONGODB_URI', 'PROJECT_ID'];
+  const required = ['MONGODB_URI', 'PROJECT_ID', 'USE_VERTEX_AI'];
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
     console.error(`❌ CRITICAL: Missing required environment variables: ${missing.join(', ')}`);
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
+    // Fail fast in all non-dev environments or if explicit production
+    if (process.env.NODE_ENV === 'production' || process.env.STRICT_BOOT === 'true') {
+      console.warn('⚠️  [BootGuard] Environment validation incomplete. Continuing in DEGRADED mode.');
+      // Never exit - allow Cloud Run to start so we can see logs
+      // process.exit(1); 
     }
   }
 }

@@ -2,9 +2,15 @@ const Supermemory = require('supermemory').default;
 
 class MemoryService {
     constructor() {
-        this.client = new Supermemory({
-            apiKey: process.env.SUPERMEMORY_API_KEY
-        });
+        this.client = null;
+        if (process.env.SUPERMEMORY_API_KEY) {
+            this.client = new Supermemory({
+                apiKey: process.env.SUPERMEMORY_API_KEY
+            });
+            console.log('🧠 [MemoryService] Supermemory client initialized.');
+        } else {
+            console.warn('⚠️ [MemoryService] SUPERMEMORY_API_KEY missing. Running in stateless mode (no memory).');
+        }
     }
 
     /**
@@ -15,6 +21,7 @@ class MemoryService {
      */
     async addInteraction(userId, content, metadata = {}) {
         try {
+            if (!this.client) return;
             const threadId = (metadata.threadId || 'default').replace(/[^a-zA-Z0-9-_]/g, '_');
             const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
             
@@ -50,6 +57,7 @@ class MemoryService {
             const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
             const sanitizedThreadId = threadId ? String(threadId).replace(/[^a-zA-Z0-9-_]/g, '_') : null;
             
+            if (!this.client) return [];
             console.log(`🔍 [MemoryService] Searching memory for context: "${query}" (User: ${sanitizedUserId})`);
             
             // Note: Supermemory v4 search primarily uses one containerTag
@@ -70,6 +78,7 @@ class MemoryService {
      */
     async getUserProfile(userId) {
         try {
+            if (!this.client) return null;
             const sanitizedUserId = String(userId).replace(/[^a-zA-Z0-9-_]/g, '_');
             const profile = await this.client.profile({ containerTag: `user_${sanitizedUserId}` });
             return profile;

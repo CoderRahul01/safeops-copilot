@@ -31,8 +31,7 @@
     "google-auth-library": "^9.15.0",
     "helmet": "^8.1.0",
     "mongoose": "^9.1.6",
-    "supermemory": "^4.0.0",
-    "uuid": "^13.0.0"
+    "supermemory": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

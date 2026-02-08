@@ -12,36 +12,23 @@ import {
 } from "../components/TamboComponents";
 import { CloudView } from "../components/CloudView";
 import TamboChat from "../components/TamboChat";
-import { useAuth } from "../components/AuthProvider";
+import { fetchWithAuth } from "../utils/api";
 
 export default function SafeOpsDashboard() {
   const { user, login, logout } = useAuth();
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState("Dashboard");
   
   const [billingData, setBillingData] = useState({ totalSpend: 0, budget: 1000 });
   const [riskMetrics, setRiskMetrics] = useState({ risk_score: 0, active_resources: 0, saving_potential: 0 });
-  const [auditChecks, setAuditChecks] = useState([
-    { category: "IAM_POLICIES", status: 'PASS', message: "All root accounts MFA enabled." },
-    { category: "NETWORK_GATE", status: 'WARN', message: "Port 22 open on 2 dev instances." },
-    { category: "DATA_ENCRYPTION", status: 'PASS', message: "RDS volumes AES-256 active." }
-  ]);
-  const [workflowSteps] = useState([
-    { completed: true, label: "Isolate Node", description: "Detecting anomalous outbound traffic..." },
-    { completed: false, label: "Rotate Keys", description: "Generating new IAM credentials..." },
-    { completed: false, label: "Patch Fleet", description: "Deploying security update SEC-042..." }
-  ]);
+  const [auditChecks, setAuditChecks] = useState([]);
+  const [workflowSteps] = useState([]);
 
   const fetchDashboardData = React.useCallback(async () => {
+    if (!user) return;
     try {
-      const token = await user?.getIdToken();
-      if (!token) return;
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/api/billing/context`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetchWithAuth('/api/billing/context');
       const data = await res.json();
       
       if (data.billingStatus) {
@@ -55,13 +42,15 @@ export default function SafeOpsDashboard() {
         setRiskMetrics({
           risk_score: data.metrics.risk_count / (data.metrics.active_resources || 1),
           active_resources: data.metrics.active_resources,
-          saving_potential: parseFloat(data.metrics.saving_potential)
+          saving_potential: parseFloat(data.metrics.saving_potential) || 0
         });
       }
 
       if (data.securityChecks) {
         setAuditChecks(data.securityChecks);
       }
+      
+      setIsLoading(false);
     } catch (err) {
       console.error("Dashboard sync failed:", err);
     }
@@ -71,22 +60,15 @@ export default function SafeOpsDashboard() {
     setMounted(true);
     if (user) {
       fetchDashboardData();
-      const interval = setInterval(fetchDashboardData, 30000); // Sync every 30s
+      const interval = setInterval(fetchDashboardData, 30000); 
       return () => clearInterval(interval);
     }
   }, [user, fetchDashboardData]);
 
   const handleRemediate = async (stepIndex) => {
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (user) {
-        const token = await user.getIdToken();
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const response = await fetch(`${apiUrl}/api/security-audit/remediate`, {
+      const response = await fetchWithAuth('/api/security-audit/remediate', {
         method: 'POST',
-        headers,
         body: JSON.stringify({ issueId: "INCIDENT-882-B", stepIndex })
       });
       if (!response.ok) throw new Error("Remediation protocol intercepted.");

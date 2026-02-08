@@ -59,33 +59,53 @@ class GCPAdapter extends BaseCloudAdapter {
       keyFilename: keyPath,
       scopes: ['https://www.googleapis.com/auth/cloud-platform']
     });
-
     try {
-      console.log(`�️ [GCP] Using Explicit SA Path: ${keyPath}`);
+      console.log(`🛡️ [GCP] Using Explicit SA Path: ${keyPath}`);
       const client = await auth.getClient();
       return client;
     } catch (error) {
       console.error('❌ [GCPAdapter] Auth fallback failed:', error.message);
-      throw new Error("GCP_AUTH_FAILED: No valid user connection or service account found.");
+      const err = new Error("GCP_AUTH_FAILED: No valid user connection or service account found.");
+      err.code = 'CREDENTIAL_EXPIRED';
+      throw err;
     }
   }
 
   async getBilling(userId) {
     try {
       const client = await this.getAuthClient(userId);
-      // For MVP, if federated, we might need to handle specific projectId from the connection
       const connection = userId !== 'dev-user' ? await credentialService.getConnection(userId, 'gcp') : null;
       const projectId = connection?.projectId || process.env.PROJECT_ID;
 
-      return {
-        success: true,
-        provider: 'gcp',
-        currency: 'USD',
-        currentSpend: 17.90, // Mocked for MVP
-        projectId,
-        timestamp: new Date().toISOString()
-      };
+      if (!projectId) {
+        const err = new Error("GCP_PROJECT_NOT_FOUND: Project ID must be specified for billing retrieval.");
+        err.code = 'RESOURCE_NOT_FOUND';
+        throw err;
+      }
+
+      // Real check for billing (Cloud Billing API)
+      const url = `https://cloudbilling.googleapis.com/v1/projects/${projectId}/billingInfo`;
+      
+      try {
+        const response = await client.request({ url, method: 'GET' });
+        const billingInfo = response.data;
+
+        return {
+          success: true,
+          provider: 'gcp',
+          billingEnabled: billingInfo.billingEnabled,
+          billingAccountName: billingInfo.billingAccountName,
+          projectId,
+          timestamp: new Date().toISOString()
+        };
+      } catch (billingError) {
+        console.warn(`⚠️ [GCPAdapter] Could not fetch billing for ${projectId}:`, billingError.message);
+        const err = new Error(`BILLING_ACCESS_DENIED: ${billingError.message}`);
+        err.code = 'BILLING_DISABLED';
+        throw err;
+      }
     } catch (error) {
+      console.error('❌ [GCPAdapter] getBilling failed:', error.message);
       throw error;
     }
   }
