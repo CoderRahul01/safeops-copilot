@@ -23,6 +23,7 @@ yarn-error.log*
 .env.*
 !.env.example
 service-account.json
+safeops-sa-key.json
 *.json.key
 secrets.json
 

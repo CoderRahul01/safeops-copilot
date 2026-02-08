@@ -13,6 +13,7 @@ import {
 import { CloudView } from "../components/CloudView";
 import TamboChat from "../components/TamboChat";
 import { fetchWithAuth } from "../utils/api";
+import { useAuth } from "../components/AuthProvider";
 
 export default function SafeOpsDashboard() {
   const { user, login, logout } = useAuth();

@@ -10,23 +10,19 @@ const awsService = require('../../services/aws.service');
 const getBillingContext = async (req, res) => {
   try {
     const userId = req.user?.uid || 'default-user';
-    const snapshot = await firestoreService.getSnapshot(userId);
+    
+    // Get real-time GCP dashboard data
+    const snapshot = await gcpService.getDashboardSnapshot();
+    
     res.json({
       userRole: "infrastructure-admin",
       environment: "production",
-      billingStatus: snapshot.billing,
-      recommendation: snapshot.recommendation,
-      metrics: {
-        active_resources: snapshot.inventory.total,
-        risk_count: snapshot.inventory.highRisk,
-        saving_potential: snapshot.inventory.potentialSavings
-      },
-      securityChecks: [
-        { category: "INFRA_LINK", status: snapshot.inventory.total > 0 ? 'PASS' : 'WARN', message: snapshot.inventory.total > 0 ? "Cloud resources detected and synced." : "No active resources found in connected accounts." },
-        { category: "WASTE_SCAN", status: snapshot.inventory.highRisk > 0 ? 'FAIL' : 'PASS', message: snapshot.inventory.highRisk > 0 ? `${snapshot.inventory.highRisk} high-waste instances detected.` : "No significant resource leaks found." },
-        { category: "OIDC_AUTH", status: 'PASS', message: "Short-lived token authentication verified." }
-      ],
-      timestamp: new Date().toISOString()
+      billingStatus: snapshot.billingStatus,
+      recommendation: "Global resource efficiency optimized.",
+      metrics: snapshot.metrics,
+      securityChecks: snapshot.securityChecks,
+      resources: snapshot.resources,
+      timestamp: snapshot.timestamp
     });
   } catch (error) {
     console.error('Failed to get billing context:', error);

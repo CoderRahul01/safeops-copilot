@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../../middlewares/auth.middleware');
+const { verifyAuth } = require('../../middleware/auth.middleware');
 
 /**
  * Security Audit Module
@@ -13,7 +13,7 @@ router.get('/health', (req, res) => {
 });
 
 // Get latest security audit report (Protected)
-router.get('/report', verifyToken, async (req, res) => {
+router.get('/report', verifyAuth, async (req, res) => {
   try {
     // Mocking a security audit report for now
     // In a real scenario, this would trigger a scan or pull from Firestore
@@ -51,7 +51,7 @@ router.get('/report', verifyToken, async (req, res) => {
 });
 
 // Initiate remediation action (Protected)
-router.post('/remediate', verifyToken, async (req, res) => {
+router.post('/remediate', verifyAuth, async (req, res) => {
   try {
     const { issueId, stepIndex } = req.body;
     

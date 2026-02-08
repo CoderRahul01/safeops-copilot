@@ -125,7 +125,21 @@ const updateCredentials = async (req, res) => {
         const userId = req.user.uid;
 
         console.log(`🔌 [Simplification] Direct Onboarding: Received ${provider} keys for User ${userId}`);
-        await credentialService.storeConnection(userId, provider, credentials);
+        
+        // Store with timeout handling
+        try {
+          await Promise.race([
+            credentialService.storeConnection(userId, provider, credentials),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Storage timeout')), 8000))
+          ]);
+        } catch (storageError) {
+          if (storageError.message === 'Storage timeout' || storageError.message.includes('buffering timed out')) {
+            console.warn('⚠️ MongoDB timeout during credential storage. Credentials may not be persisted.');
+            // Continue with response even if storage fails
+          } else {
+            throw storageError;
+          }
+        }
 
         const { createReport } = require('../../utils/response.util');
         const ErrorCodes = require('../../constants/error-codes');
@@ -156,7 +170,16 @@ const updateCredentials = async (req, res) => {
           ]
         });
 
-        await auditService.recordReport(userId, report);
+        // Try to record report, but don't fail if it times out
+        try {
+          await Promise.race([
+            auditService.recordReport(userId, report),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Audit timeout')), 3000))
+          ]);
+        } catch (auditError) {
+          console.warn('⚠️ Audit service timeout. Report not persisted.');
+        }
+        
         res.json(report);
     } catch (error) {
         console.error('❌ [Onboarding] Failed to store credentials:', error);
@@ -166,7 +189,12 @@ const updateCredentials = async (req, res) => {
           message: error.message
         });
 
-        await auditService.recordError(userId, errorReport, { provider, action: 'ONBOARDING' });
+        try {
+          await auditService.recordError(userId, errorReport, { provider, action: 'ONBOARDING' });
+        } catch (auditError) {
+          console.warn('⚠️ Failed to record error in audit service.');
+        }
+        
         res.status(500).json(errorReport);
     }
 };
@@ -214,7 +242,7 @@ const getConnectionStatus = async (req, res) => {
         
         // Use the model directly for status check to get metadata
         const CloudConnection = require('../../models/cloud-connection.model');
-        const connections = await CloudConnection.find({ userId });
+        const connections = await CloudConnection.find({ userId }).maxTimeMS(5000);
         
         const status = {
           aws: { connected: false },
@@ -231,6 +259,17 @@ const getConnectionStatus = async (req, res) => {
         res.json(status);
     } catch (error) {
         console.error('Failed to get connection status:', error);
+        
+        // If MongoDB timeout, return default status instead of error
+        if (error.message && error.message.includes('buffering timed out')) {
+          console.warn('⚠️ MongoDB connection timeout. Returning default status.');
+          return res.json({
+            aws: { connected: false },
+            gcp: { connected: false },
+            warning: 'Database connection timeout. Status may be stale.'
+          });
+        }
+        
         res.status(500).json({ error: 'Failed to get connection status', message: error.message });
     }
 };

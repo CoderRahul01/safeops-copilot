@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SafeOps Smart Deployment Script
+# SafeOps Smart Deployment Script (Final Version)
 # Targeted Project: arcane-dolphin-484007-f8
 
 set -e
@@ -37,6 +37,7 @@ else
     BACKEND_CHANGED=false
   else
     BACKEND_CHANGED=true
+    echo "📝 Changes detected in backend/."
   fi
 
   # Check for changes in frontend/
@@ -44,11 +45,11 @@ else
     FRONTEND_CHANGED=false
   else
     FRONTEND_CHANGED=true
+    echo "📝 Changes detected in frontend/."
   fi
 
-  # Fallback: If no changes detected in sub-directories, but we are running this, maybe it's the first time or something else changed
   if [ "$BACKEND_CHANGED" = false ] && [ "$FRONTEND_CHANGED" = false ]; then
-    echo "❓ No changes detected in backend/ or frontend/ folders."
+    echo "❓ No changes detected in backend/ or frontend/."
     echo "👉 Use './deploy.sh --force' to deploy anyway."
     exit 0
   fi
@@ -65,11 +66,11 @@ if [ "$BACKEND_CHANGED" = true ]; then
     --allow-unauthenticated
   cd ..
 else
-  echo "⏩ Skipping Backend (no changes detected)."
+  echo "⏩ Skipping Backend (no changes)."
 fi
 
-# Capture the backend URL (needed for frontend)
-BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE --region $REGION --format 'value(status.url)' 2>/dev/null || echo "https://safeops-backend-633136504840.us-central1.run.app")
+# Capture the backend URL (needed for frontend build)
+BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE --region $REGION --format 'value(status.url)' 2>/dev/null || echo "https://safeops-backend-x5vl4puthq-uc.a.run.app")
 echo "✅ Backend uplink status: $BACKEND_URL"
 
 # 2. Deploy Frontend
@@ -77,18 +78,36 @@ if [ "$FRONTEND_CHANGED" = true ]; then
   echo "📦 [2/2] Deploying Frontend..."
   cd frontend
   
+  IMAGE_TAG="us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/safeops-frontend:latest"
+  
+  echo "🛠 Building Frontend Image with Cloud Build..."
+  gcloud builds submit \
+    --config cloudbuild.yaml \
+    --substitutions="\
+_IMAGE_TAG=$IMAGE_TAG,\
+_NEXT_PUBLIC_API_URL=$BACKEND_URL,\
+_NEXT_PUBLIC_TAMBO_API_KEY=tambo_L3Quyv7sCEKSualV287qutDF4D5p/v4zgproIXFCUgmF3bN7Z+5vgTVu/IDyfkVMeQwZ1Newkbi1A7rO8I2YsOMsoafOdqlel7CdS/MPiGA=,\
+_NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCbjstqjik_Kzfq1fSLhNTs3pw3YoCY15I,\
+_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=arcane-dolphin-484007-f8.firebaseapp.com,\
+_NEXT_PUBLIC_FIREBASE_PROJECT_ID=arcane-dolphin-484007-f8,\
+_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=arcane-dolphin-484007-f8.firebasestorage.app,\
+_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=633136504840,\
+_NEXT_PUBLIC_FIREBASE_APP_ID=1:633136504840:web:f89e19b62064900f52b1bd,\
+_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-DC3MVTERDK" \
+    --region $REGION
+
+  echo "🚀 Deploying Frontend Image to Cloud Run..."
   FIREBASE_VARS="NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCbjstqjik_Kzfq1fSLhNTs3pw3YoCY15I,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=arcane-dolphin-484007-f8.firebaseapp.com,NEXT_PUBLIC_FIREBASE_PROJECT_ID=arcane-dolphin-484007-f8,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=arcane-dolphin-484007-f8.firebasestorage.app,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=633136504840,NEXT_PUBLIC_FIREBASE_APP_ID=1:633136504840:web:f89e19b62064900f52b1bd,NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-DC3MVTERDK"
   TAMBO_VARS="NEXT_PUBLIC_TAMBO_API_KEY=tambo_L3Quyv7sCEKSualV287qutDF4D5p/v4zgproIXFCUgmF3bN7Z+5vgTVu/IDyfkVMeQwZ1Newkbi1A7rO8I2YsOMsoafOdqlel7CdS/MPiGA="
 
   gcloud run deploy $FRONTEND_SERVICE \
-    --source . \
+    --image "$IMAGE_TAG" \
     --region $REGION \
     --set-env-vars "NEXT_PUBLIC_API_URL=$BACKEND_URL,$FIREBASE_VARS,$TAMBO_VARS" \
-    --set-build-env-vars "NEXT_PUBLIC_API_URL=$BACKEND_URL,$FIREBASE_VARS,$TAMBO_VARS" \
     --allow-unauthenticated
   cd ..
 else
-  echo "⏩ Skipping Frontend (no changes detected)."
+  echo "⏩ Skipping Frontend (no changes)."
 fi
 
 echo "----------------------------------------------------"

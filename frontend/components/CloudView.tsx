@@ -29,8 +29,19 @@ export function CloudView() {
         fetchWithAuth('/api/cloud/logs')
       ]);
 
+      if (!statusRes.ok) {
+        console.error('Status API failed:', statusRes.status);
+        addLog(`⚠️ Connection status check failed (${statusRes.status}). Retrying...`, 'warn');
+        return;
+      }
+
+      if (!logsRes.ok) {
+        console.error('Logs API failed:', logsRes.status);
+        // Don't fail the whole fetch if logs fail
+      }
+
       const statusData = await statusRes.json();
-      const logsData = await logsRes.json();
+      const logsData = logsRes.ok ? await logsRes.json() : { entries: [] };
       
       setConnectionStatus({
         aws: statusData.aws?.connected || false,
@@ -40,8 +51,14 @@ export function CloudView() {
       if (logsData.type === 'LOG_REPORT' && Array.isArray(logsData.entries)) {
         setLogs(logsData.entries);
       }
+      
+      // Show warning if database timeout detected
+      if (statusData.warning) {
+        addLog(`⚠️ ${statusData.warning}`, 'warn');
+      }
     } catch (err) {
       console.error("Failed to fetch cloud overview:", err);
+      addLog(`❌ Cloud API connection failed. Check backend logs.`, 'error');
     }
   }, [user]);
 
