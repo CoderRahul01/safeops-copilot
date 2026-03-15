@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
  * Creates required collections and indexes
  */
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://maruthirp432_db_user:0Yk4V4yUQnhHPRrJ@cluster0.aa1mbrf.mongodb.net/';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/safeops';
 
 async function initializeCollections() {
   try {
