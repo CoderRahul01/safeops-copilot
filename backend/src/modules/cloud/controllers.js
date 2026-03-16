@@ -19,7 +19,7 @@ const listGcpServices = async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Failed to list GCP services:', error);
-    res.status(500).json({ error: 'Failed to list GCP services', message: error.message });
+    res.status(500).json({ error: 'Failed to list GCP services', message: 'An internal error occurred.' });
   }
 };
 
@@ -31,7 +31,7 @@ const stopGcpService = async (req, res) => {
     res.json({ ...result, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Failed to stop GCP service:', error);
-    res.status(500).json({ error: 'Failed to stop GCP service', message: error.message });
+    res.status(500).json({ error: 'Failed to stop GCP service', message: 'An internal error occurred.' });
   }
 };
 
@@ -42,7 +42,7 @@ const listAwsServices = async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Failed to list AWS resources:', error);
-    res.status(500).json({ error: 'Failed to list AWS resources', message: error.message });
+    res.status(500).json({ error: 'Failed to list AWS resources', message: 'An internal error occurred.' });
   }
 };
 
@@ -111,7 +111,7 @@ const terminateResource = async (req, res) => {
     const errorReport = createErrorReport({
       error: error.code || ErrorCodes.TERMINATION_FAILED,
       code: error.code || ErrorCodes.TERMINATION_FAILED,
-      message: error.message
+      message: 'An internal error occurred.'
     });
 
     await auditService.recordError(userId, errorReport, { provider, action: 'TERMINATE_RESOURCE' });
@@ -186,7 +186,7 @@ const updateCredentials = async (req, res) => {
         const errorReport = createErrorReport({
           error: ErrorCodes.CLOUD_ONBOARDING_FAILED,
           code: ErrorCodes.CLOUD_ONBOARDING_FAILED,
-          message: error.message
+          message: 'An internal error occurred.'
         });
 
         try {
@@ -217,7 +217,7 @@ const getCloudOverview = async (req, res) => {
         });
     } catch (error) {
         console.error('Failed to fetch cloud overview:', error);
-        res.status(500).json({ error: 'Failed to fetch cloud overview', message: error.message });
+        res.status(500).json({ error: 'Failed to fetch cloud overview', message: 'An internal error occurred.' });
     }
 };
 
@@ -232,7 +232,7 @@ const getCloudLogs = async (req, res) => {
         res.json(logs);
     } catch (error) {
         console.error('Failed to fetch logs:', error);
-        res.status(500).json({ error: 'Failed to fetch logs', message: error.message });
+        res.status(500).json({ error: 'Failed to fetch logs', message: 'An internal error occurred.' });
     }
 };
 
@@ -270,7 +270,7 @@ const getConnectionStatus = async (req, res) => {
           });
         }
         
-        res.status(500).json({ error: 'Failed to get connection status', message: error.message });
+        res.status(500).json({ error: 'Failed to get connection status', message: 'An internal error occurred.' });
     }
 };
 
