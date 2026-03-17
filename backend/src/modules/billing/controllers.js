@@ -26,7 +26,7 @@ const getBillingContext = async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to get billing context:', error);
-    res.status(500).json({ error: 'Failed to retrieve billing context', message: error.message });
+    res.status(500).json({ error: 'Failed to retrieve billing context', message: 'An internal error occurred.' });
   }
 };
 
@@ -36,7 +36,7 @@ const getGcpBilling = async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Failed to get GCP billing:', error);
-    res.status(500).json({ error: 'Failed to get GCP billing', message: error.message });
+    res.status(500).json({ error: 'Failed to get GCP billing', message: 'An internal error occurred.' });
   }
 };
 
@@ -46,7 +46,7 @@ const getAwsBilling = async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Failed to get AWS billing:', error);
-    res.status(500).json({ error: 'Failed to get AWS billing', message: error.message });
+    res.status(500).json({ error: 'Failed to get AWS billing', message: 'An internal error occurred.' });
   }
 };
 
@@ -82,7 +82,7 @@ const getSentinelData = async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to get sentinel data:', error);
-    res.status(500).json({ error: 'Sentinel Scan Failed', message: error.message });
+    res.status(500).json({ error: 'Sentinel Scan Failed', message: 'An internal error occurred.' });
   }
 };
 
