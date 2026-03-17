@@ -8,7 +8,14 @@ const CloudConnection = require('../models/cloud-connection.model');
 class CredentialService {
   constructor() {
     this.algorithm = 'aes-256-gcm';
-    this.key = Buffer.from(process.env.ENCRYPTION_KEY || 'super-secret-key-32-chars-long-!!', 'utf8').slice(0, 32);
+
+    // 🛡️ Sentinel: Fix critical hardcoded encryption key
+    // Fail securely: immediately throw an error preventing startup without a secure key
+    if (!process.env.ENCRYPTION_KEY) {
+      throw new Error("🚨 [CRITICAL] ENCRYPTION_KEY environment variable is missing and required for secure storage.");
+    }
+    this.key = Buffer.from(process.env.ENCRYPTION_KEY, 'utf8').slice(0, 32);
+
     this.ivLength = 16;
     this.saltLength = 64;
     this.tagLength = 16;
