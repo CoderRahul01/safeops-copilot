@@ -11,8 +11,10 @@ const onboard = async (req, res) => {
       return res.status(400).json({ error: "Provider and credentials are required" });
     }
 
-    console.log(`🔑 [Module:Onboard] New ${provider} credentials...`);
-    await firestoreService.recalculateBudget('default-user');
+    const userId = req.user ? req.user.uid : 'default-user';
+
+    console.log(`🔑 [Module:Onboard] New ${provider} credentials for ${userId}...`);
+    await firestoreService.recalculateBudget(userId);
 
     res.json({
       success: true,
