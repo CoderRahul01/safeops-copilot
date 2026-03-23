@@ -29,7 +29,7 @@ class GCPService {
       console.log(`🛑 Stopping Cloud Run service: ${serviceName} in ${region}`);
       
       const authClient = await this.auth.getClient();
-      const url = `https://${region}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${this.projectId}/services/${serviceName}`;
+      const url = `https://${encodeURIComponent(region)}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${encodeURIComponent(this.projectId)}/services/${encodeURIComponent(serviceName)}`;
       
       const getResponse = await authClient.request({
         url: url,
@@ -116,7 +116,7 @@ class GCPService {
     try {
       console.log(`📋 Listing Cloud Run services in ${region}...`);
       const authClient = await this.auth.getClient();
-      const url = `https://${region}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${this.projectId}/services`;
+      const url = `https://${encodeURIComponent(region)}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${encodeURIComponent(this.projectId)}/services`;
       
       const response = await authClient.request({
         url: url,
@@ -161,7 +161,7 @@ class GCPService {
   async getVMInstances() {
     try {
       const authClient = await this.auth.getClient();
-      const url = `https://compute.googleapis.com/compute/v1/projects/${this.projectId}/aggregated/instances`;
+      const url = `https://compute.googleapis.com/compute/v1/projects/${encodeURIComponent(this.projectId)}/aggregated/instances`;
       
       const response = await authClient.request({
         url: url,

@@ -84,7 +84,7 @@ class GCPAdapter extends BaseCloudAdapter {
       }
 
       // Real check for billing (Cloud Billing API)
-      const url = `https://cloudbilling.googleapis.com/v1/projects/${projectId}/billingInfo`;
+      const url = `https://cloudbilling.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/billingInfo`;
       
       try {
         const response = await client.request({ url, method: 'GET' });
@@ -116,7 +116,7 @@ class GCPAdapter extends BaseCloudAdapter {
       const connection = userId !== 'dev-user' ? await credentialService.getConnection(userId, 'gcp') : null;
       const projectId = connection?.projectId || process.env.PROJECT_ID || 'arcane-dolphin-484007-f8';
 
-      const url = `https://${region}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${projectId}/services`;
+      const url = `https://${encodeURIComponent(region)}-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/${encodeURIComponent(projectId)}/services`;
       
       const response = await client.request({ url, method: 'GET' });
       const services = (response.data.items || []).map(s => ({
@@ -150,7 +150,7 @@ class GCPAdapter extends BaseCloudAdapter {
         if (params.type === 'cloud-run') {
            console.log(`[GCPAdapter] Scaling Cloud Run service to zero: ${params.resourceName}`);
         } else {
-           const url = `https://compute.googleapis.com/compute/v1/projects/${projectId}/zones/${zone}/instances/${params.resourceName}/stop`;
+           const url = `https://compute.googleapis.com/compute/v1/projects/${encodeURIComponent(projectId)}/zones/${encodeURIComponent(zone)}/instances/${encodeURIComponent(params.resourceName)}/stop`;
            await client.request({ url, method: 'POST' });
         }
 
