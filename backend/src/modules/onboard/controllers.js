@@ -12,7 +12,9 @@ const onboard = async (req, res) => {
     }
 
     console.log(`🔑 [Module:Onboard] New ${provider} credentials...`);
-    await firestoreService.recalculateBudget('default-user');
+    // Pass the user if it exists in req from auth middleware, else fallback
+    const userId = req.user ? req.user.uid : 'default-user';
+    await firestoreService.recalculateBudget(userId);
 
     res.json({
       success: true,
@@ -23,7 +25,8 @@ const onboard = async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to onboard:', error);
-    res.status(500).json({ error: 'Failed to onboard credentials', message: error.message });
+    // Sentinel: Do not leak internal error.message to the client
+    res.status(500).json({ error: 'Failed to onboard credentials', message: 'An internal error occurred.' });
   }
 };
 
