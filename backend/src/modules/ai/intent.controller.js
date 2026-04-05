@@ -84,7 +84,7 @@ const processIntent = async (req, res) => {
 
   } catch (error) {
     console.error('❌ [Intent Controller] Process error:', error);
-    res.status(500).json({ error: 'Failed to process intent', message: error.message });
+    res.status(500).json({ error: 'Failed to process intent', message: 'An internal error occurred.' });
   }
 };
 
@@ -115,7 +115,8 @@ const advanceIntent = async (req, res) => {
             ctas: intent.ctas
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to advance intent', message: error.message });
+        console.error('Failed to advance intent:', error);
+        res.status(500).json({ error: 'Failed to advance intent', message: 'An internal error occurred.' });
     }
 };
 
