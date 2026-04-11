@@ -88,7 +88,7 @@ router.post('/remediate', verifyAuth, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Remediation Error:', error.message);
-    res.status(500).json({ error: 'Remediation protocol failed', details: error.message });
+    res.status(500).json({ error: 'Remediation protocol failed' });
   }
 });
 
