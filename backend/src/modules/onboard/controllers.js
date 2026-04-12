@@ -22,8 +22,9 @@ const onboard = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
+    // 🛡️ Sentinel: Prevent information disclosure by not exposing error.message to the client
     console.error('Failed to onboard:', error);
-    res.status(500).json({ error: 'Failed to onboard credentials', message: error.message });
+    res.status(500).json({ error: 'Failed to onboard credentials', message: 'An internal error occurred.' });
   }
 };
 
