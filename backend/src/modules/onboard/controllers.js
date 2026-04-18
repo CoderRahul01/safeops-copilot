@@ -23,7 +23,8 @@ const onboard = async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to onboard:', error);
-    res.status(500).json({ error: 'Failed to onboard credentials', message: error.message });
+    // 🛡️ Sentinel: Prevent information disclosure by not returning raw error messages to the client
+    res.status(500).json({ error: 'Failed to onboard credentials', message: 'An internal error occurred.' });
   }
 };
 
