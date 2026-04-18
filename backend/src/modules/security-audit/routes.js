@@ -88,7 +88,8 @@ router.post('/remediate', verifyAuth, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Remediation Error:', error.message);
-    res.status(500).json({ error: 'Remediation protocol failed', details: error.message });
+    // 🛡️ Sentinel: Prevent information disclosure by not returning raw error messages to the client
+    res.status(500).json({ error: 'Remediation protocol failed', details: 'An internal error occurred.' });
   }
 });
 
