@@ -84,7 +84,8 @@ const processIntent = async (req, res) => {
 
   } catch (error) {
     console.error('❌ [Intent Controller] Process error:', error);
-    res.status(500).json({ error: 'Failed to process intent', message: error.message });
+    // 🛡️ Sentinel: Prevent information disclosure by not exposing raw error messages
+    res.status(500).json({ error: 'Failed to process intent', message: 'An internal error occurred.' });
   }
 };
 
@@ -94,6 +95,7 @@ const getIntentHistory = async (req, res) => {
         const intents = await require('../../models/intent.model').find({ userId: uid }).sort({ createdAt: -1 }).limit(20);
         res.json({ intents });
     } catch (error) {
+        console.error('❌ [Intent Controller] Get history error:', error);
         res.status(500).json({ error: 'Failed to fetch history' });
     }
 };
@@ -115,7 +117,9 @@ const advanceIntent = async (req, res) => {
             ctas: intent.ctas
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to advance intent', message: error.message });
+        console.error('❌ [Intent Controller] Advance error:', error);
+        // 🛡️ Sentinel: Prevent information disclosure by not exposing raw error messages
+        res.status(500).json({ error: 'Failed to advance intent', message: 'An internal error occurred.' });
     }
 };
 
