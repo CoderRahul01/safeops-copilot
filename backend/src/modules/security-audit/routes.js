@@ -45,7 +45,7 @@ router.get('/report', verifyAuth, async (req, res) => {
 
     res.json(auditReport);
   } catch (error) {
-    console.error('❌ Audit Report Error:', error.message);
+    console.error('❌ Audit Report Error:', error);
     res.status(500).json({ error: 'Failed to retrieve audit report' });
   }
 });
@@ -87,8 +87,9 @@ router.post('/remediate', verifyAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Remediation Error:', error.message);
-    res.status(500).json({ error: 'Remediation protocol failed', details: error.message });
+    console.error('❌ Remediation Error:', error);
+    // 🛡️ Sentinel: Prevent information disclosure by removing raw error.message from response
+    res.status(500).json({ error: 'Remediation protocol failed', details: 'An internal error occurred.' });
   }
 });
 
