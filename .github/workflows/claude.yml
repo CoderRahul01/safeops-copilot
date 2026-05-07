@@ -26,11 +26,13 @@ jobs:
       actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
+        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code
+        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
