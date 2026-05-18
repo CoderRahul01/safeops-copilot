@@ -82,9 +82,10 @@ const processIntent = async (req, res) => {
       data: intent.result // Optional payload
     });
 
+  // 🛡️ Sentinel: Prevent information disclosure by not sending raw error messages to the client
   } catch (error) {
     console.error('❌ [Intent Controller] Process error:', error);
-    res.status(500).json({ error: 'Failed to process intent', message: error.message });
+    res.status(500).json({ error: 'Failed to process intent', message: 'An internal error occurred.' });
   }
 };
 
@@ -114,8 +115,9 @@ const advanceIntent = async (req, res) => {
             steps: intent.steps,
             ctas: intent.ctas
         });
+    // 🛡️ Sentinel: Prevent information disclosure by not sending raw error messages to the client
     } catch (error) {
-        res.status(500).json({ error: 'Failed to advance intent', message: error.message });
+        res.status(500).json({ error: 'Failed to advance intent', message: 'An internal error occurred.' });
     }
 };
 
