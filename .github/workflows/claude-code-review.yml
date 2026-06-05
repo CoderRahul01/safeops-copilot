@@ -27,11 +27,13 @@ jobs:
 
     steps:
       - name: Checkout repository
+        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code Review
+        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
