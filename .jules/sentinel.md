@@ -2,3 +2,7 @@
 **Vulnerability:** Internal system errors and API error messages (like `error.message` from GCP/AWS SDKs) were directly forwarded to clients in HTTP 500 JSON responses.
 **Learning:** Returning unhandled exception messages from cloud provider SDKs can leak internal details about project structure, IAM policies, and infrastructure configuration to unauthorized users.
 **Prevention:** Always catch exceptions at the controller level and return generic, safe error messages (e.g., "An internal error occurred.") to the client, while logging the actual `error.message` securely on the server-side.
+## 2026-06-12 - Prevent error.message Information Disclosure
+**Vulnerability:** Raw error messages (`error.message`) were being returned directly to the client in HTTP 500 responses across multiple backend modules (`onboard`, `ai`, `security-audit`). This could potentially leak sensitive internal application logic, file paths, or cloud provider details.
+**Learning:** When standardizing error handling across decoupled modules, developers often default to returning the caught exception's message for easier debugging, unintentionally bypassing security boundaries. We need to ensure uniform generic error responses are used in catch blocks.
+**Prevention:** Establish a project-wide convention (or utilize a unified error handling middleware) to catch all unhandled exceptions and return safe, generic error payloads (e.g., 'An internal error occurred.') to the client while explicitly logging the actual error context server-side for observability.
